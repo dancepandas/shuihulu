@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+.idea/
+runs/
+weights/
+*.pt
+*.pth
+datasets/
+*.egg-info/
+dist/
+build/
+.env
+TinySAM/

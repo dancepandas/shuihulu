@@ -1,0 +1,17 @@
+project: runs/segment
+name: hyacinth_yolov8_seg
+imgsz: 640
+epochs: 100
+batch: 8
+workers: 4
+device: 0
+patience: 50
+conf: 0.25
+iou: 0.5
+save: true
+verbose: true
+
+sam_checkpoint: weights/sam_vit_h.pth
+sam_model_type: vit_h
+freeze_p3: true
+optimizer: SGD
