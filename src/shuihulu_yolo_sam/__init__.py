@@ -4,6 +4,7 @@ from .model import (
     build_cli_defaults,
     freeze_fpn_p3,
     load_yolo_for_train,
+    resolve_class_index,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "build_cli_defaults",
     "freeze_fpn_p3",
     "load_yolo_for_train",
+    "resolve_class_index",
 ]

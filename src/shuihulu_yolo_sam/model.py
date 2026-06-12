@@ -23,6 +23,34 @@ def build_cli_defaults(runtime_path: str | Path = "configs/runtime.yaml") -> dic
     return load_yaml(runtime_file)
 
 
+def resolve_class_index(
+    names: dict | list,
+    target: int | str | None = "hyacinth",
+) -> int | None:
+    """从 YOLO 类别名称表解析「只把该类框传给 SAM」的目标类索引。
+
+    target 为 int 时直接返回；为 str 时按子串（大小写不敏感）匹配，
+    兼容 'Water Hyacinth' / 'water_hyacinth' 等写法；为 None 时不过滤（传全部框给 SAM）。
+    """
+    if target is None:
+        return None
+    if isinstance(target, int):
+        return target
+    items = names.items() if isinstance(names, dict) else enumerate(names)
+    target_low = str(target).lower()
+    matches = [idx for idx, name in items if target_low in str(name).lower()]
+    available = list(names.values()) if isinstance(names, dict) else list(names)
+    if not matches:
+        raise ValueError(
+            f"未在类别名称中找到匹配 '{target}' 的类别。可用类别：{available}"
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"目标类 '{target}' 匹配到多个类别索引 {matches}，请用整数索引明确指定。"
+        )
+    return matches[0]
+
+
 class YoloSamPipeline:
     """两阶段水葫芦画面切割流水线：YOLOv8 检测 + SAM 精细分割。
 
@@ -37,12 +65,24 @@ class YoloSamPipeline:
         sam_checkpoint: str | Path,
         sam_model_type: str = "vit_h",
         device: str | int = 0,
+        target_class: int | str | None = "hyacinth",
     ):
         self.device = self._resolve_device(device)
 
         if not Path(yolo_model_path).exists():
             raise FileNotFoundError(f"未找到 YOLOv8 模型文件：{yolo_model_path}")
         self.yolo = YOLO(str(yolo_model_path))
+
+        # 解析「只把该类（默认水葫芦）的框传给 SAM」的目标类索引
+        try:
+            names = self.yolo.model.names
+        except Exception:
+            names = {}
+        try:
+            self.target_index = resolve_class_index(names, target_class)
+        except ValueError as e:
+            print(f"[WARN] 目标类解析失败，将不做类别过滤（全部框送 SAM）：{e}")
+            self.target_index = None
 
         if not Path(sam_checkpoint).exists():
             raise FileNotFoundError(
@@ -128,11 +168,19 @@ class YoloSamPipeline:
         iou: float = 0.5,
         imgsz: int = 640,
     ) -> tuple[Any, list[np.ndarray], list[float]]:
-        """完整两阶段推理：YOLOv8 检测 → SAM 分割。"""
+        """完整两阶段推理：YOLOv8 检测 → 仅目标类（默认水葫芦）框送 SAM 分割。"""
         results, boxes_xyxy = self.detect(image, conf=conf, iou=iou, imgsz=imgsz)
 
         if boxes_xyxy.numel() == 0:
             return results, [], []
+
+        # 只把目标类的框传给 SAM（其余类别仅检测、不分割）
+        if self.target_index is not None:
+            cls = results[0].boxes.cls.long()
+            keep = (cls == self.target_index).nonzero(as_tuple=False).squeeze(1)
+            boxes_xyxy = boxes_xyxy[keep]
+            if boxes_xyxy.numel() == 0:
+                return results, [], []
 
         image_rgb = self._to_rgb_numpy(image)
         masks, scores = self.segment(image_rgb, boxes_xyxy)

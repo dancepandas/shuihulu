@@ -25,8 +25,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--yolo-model",
-        default=str(ROOT / "weights" / "yolov8m-seg.pt"),
-        help="YOLOv8-seg 权重路径。",
+        default=str(ROOT / "runs" / "segment" / "runs" / "segment" / "hyacinth5_yolo_sam" / "weights" / "best.pt"),
+        help="YOLOv8-seg 权重路径。默认指向 5 类训练产物"
+        "（runs/segment/runs/segment/hyacinth5_yolo_sam/weights/best.pt）；"
+        "训练前可用 weights/yolov8m-seg.pt（COCO 预训练）测试流程。",
     )
     parser.add_argument(
         "--sam-checkpoint",
@@ -61,6 +63,12 @@ def parse_args() -> argparse.Namespace:
         help="输出目录。",
     )
     parser.add_argument("--show", action="store_true", help="显示可视化结果。")
+    parser.add_argument(
+        "--target-class",
+        default="hyacinth",
+        help="只把该类（默认 hyacinth）的检测框传给 SAM 做像素掩码；"
+        "其余类只画框不分割。可用整数索引或名称。",
+    )
     return parser.parse_args()
 
 
@@ -110,6 +118,7 @@ def main() -> None:
         conf=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
+        target_class=args.target_class,
     )
     print("模型加载完成。")
 

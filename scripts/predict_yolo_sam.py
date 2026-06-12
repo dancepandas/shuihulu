@@ -67,6 +67,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="显示可视化结果。",
     )
+    parser.add_argument(
+        "--target-class",
+        default="hyacinth",
+        help="只把该类（默认 hyacinth）的检测框传给 SAM；其余类不送 SAM。",
+    )
     return parser.parse_args()
 
 
@@ -203,6 +208,7 @@ def main() -> None:
         sam_checkpoint=args.sam_checkpoint,
         sam_model_type=args.sam_model_type,
         device=args.device,
+        target_class=args.target_class,
     )
 
     source = Path(args.source)

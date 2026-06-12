@@ -1,4 +1,10 @@
-project: runs/segment
+# ============================================================
+# 水葫芦分割实验 — 统一运行参数
+# 所有脚本（train / val / benchmark）共用此配置
+# ============================================================
+
+# --- 训练参数 ---
+project: runs/baselines
 name: hyacinth_yolov8_seg
 imgsz: 640
 epochs: 100
@@ -6,12 +12,22 @@ batch: 8
 workers: 4
 device: 0
 patience: 50
+optimizer: SGD
+
+# --- 推理参数 ---
 conf: 0.25
 iou: 0.5
 save: true
-verbose: true
+verbose: false
 
+# --- Baseline A: YOLOv8-seg 预训练权重 ---
+yolo_pretrained: weights/yolov8n-seg.pt
+
+# --- Baseline B: YOLO+SAM 两阶段 ---
 sam_checkpoint: weights/sam_vit_h.pth
 sam_model_type: vit_h
 freeze_p3: true
-optimizer: SGD
+
+# --- 测速参数 ---
+speed_warmup: 50
+speed_runs: 200

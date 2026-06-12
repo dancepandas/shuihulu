@@ -1,0 +1,14 @@
+# 水葫芦 5 类实例分割数据集（Label Studio 标注，2026-06-12）。
+# 类别索引与源数据 notes.json 一致；Water Hyacinth = 3。
+# 仅 Water Hyacinth 的检测框会传给 SAM 做像素级掩码（见 src/shuihulu_yolo_sam）。
+
+path: datasets/hyacinth5
+train: images/train
+val: images/val
+
+names:
+  0: Boat
+  1: Bridge
+  2: Structure
+  3: Water Hyacinth
+  4: tree

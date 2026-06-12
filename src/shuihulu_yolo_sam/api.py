@@ -11,6 +11,8 @@ import yaml
 from segment_anything import SamPredictor, sam_model_registry
 from ultralytics import YOLO
 
+from .model import resolve_class_index
+
 PALETTE = [
     (0, 200, 0),
     (0, 100, 255),
@@ -93,17 +95,37 @@ def _resolve_device(device: str | int) -> str:
 def _draw_vis(
     image_rgb: np.ndarray,
     masks: list[np.ndarray],
-    boxes_xyxy: np.ndarray | None,
-    scores: list[float] | None,
-    class_names: list[str] | None,
+    mask_boxes: np.ndarray | None = None,
+    mask_names: list[str] | None = None,
+    mask_scores: list[float] | None = None,
+    other_boxes: np.ndarray | None = None,
+    other_names: list[str] | None = None,
+    other_scores: list[float] | None = None,
     alpha: float = 0.45,
     box_thickness: int = 2,
     contour_thickness: int = 2,
     font_scale: float = 0.6,
     font_thickness: int = 1,
 ) -> np.ndarray:
+    """绘制可视化：目标类（水葫芦）叠加掩膜+轮廓+框；其余类仅画框+标签。"""
     canvas = image_rgb.copy()
 
+    def _label_box(x1, y1, x2, y2, color, parts):
+        cv2.rectangle(canvas, (x1, y1), (x2, y2), color, box_thickness)
+        label = " ".join(str(p) for p in parts if p is not None)
+        if not label:
+            return
+        (tw, th), baseline = cv2.getTextSize(
+            label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
+        )
+        cv2.rectangle(canvas, (x1, y1 - th - baseline - 6), (x1 + tw, y1), color, -1)
+        cv2.putText(
+            canvas, label, (x1, y1 - baseline - 3),
+            cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
+            font_thickness, cv2.LINE_AA,
+        )
+
+    # 目标类：掩膜 + 轮廓 + 框
     for i, m in enumerate(masks):
         color = PALETTE[i % len(PALETTE)]
         overlay = canvas.copy()
@@ -118,40 +140,26 @@ def _draw_vis(
         )
         cv2.drawContours(canvas, contours, -1, color, contour_thickness)
 
-    if boxes_xyxy is not None and len(boxes_xyxy) > 0:
-        for i, box in enumerate(boxes_xyxy):
-            color = PALETTE[i % len(PALETTE)]
+        if mask_boxes is not None and i < len(mask_boxes):
+            x1, y1, x2, y2 = mask_boxes[i].astype(int)
+            parts = []
+            if mask_names and i < len(mask_names):
+                parts.append(mask_names[i])
+            if mask_scores and i < len(mask_scores):
+                parts.append(f"{mask_scores[i]:.2f}")
+            _label_box(x1, y1, x2, y2, color, parts)
+
+    # 非目标类：仅画框 + 标签（体现 YOLO 识别多类，但不送 SAM）
+    neutral = (180, 180, 180)
+    if other_boxes is not None and len(other_boxes) > 0:
+        for i, box in enumerate(other_boxes):
             x1, y1, x2, y2 = box.astype(int)
-            cv2.rectangle(canvas, (x1, y1), (x2, y2), color, box_thickness)
-
-            parts: list[str] = []
-            if class_names and i < len(class_names):
-                parts.append(class_names[i])
-            if scores and i < len(scores):
-                parts.append(f"{scores[i]:.2f}")
-            label = " ".join(parts)
-
-            if label:
-                (tw, th), baseline = cv2.getTextSize(
-                    label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
-                )
-                cv2.rectangle(
-                    canvas,
-                    (x1, y1 - th - baseline - 6),
-                    (x1 + tw, y1),
-                    color,
-                    -1,
-                )
-                cv2.putText(
-                    canvas,
-                    label,
-                    (x1, y1 - baseline - 3),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    font_scale,
-                    (255, 255, 255),
-                    font_thickness,
-                    cv2.LINE_AA,
-                )
+            parts = []
+            if other_names and i < len(other_names):
+                parts.append(other_names[i])
+            if other_scores and i < len(other_scores):
+                parts.append(f"{other_scores[i]:.2f}")
+            _label_box(x1, y1, x2, y2, neutral, parts)
 
     return cv2.cvtColor(canvas, cv2.COLOR_RGB2BGR)
 
@@ -192,6 +200,7 @@ class Segmenter:
         iou: float = 0.5,
         imgsz: int = 640,
         alpha: float = 0.45,
+        target_class: int | str | None = "hyacinth",
     ):
         self.device = _resolve_device(device)
         self.conf = conf
@@ -222,6 +231,13 @@ class Segmenter:
             except Exception:
                 self.class_names = []
 
+        # 解析「只把该类（默认水葫芦）的框传给 SAM」的目标类索引
+        try:
+            self.target_index = resolve_class_index(self.class_names, target_class)
+        except ValueError as e:
+            print(f"[WARN] 目标类解析失败，将不做类别过滤（全部框送 SAM）：{e}")
+            self.target_index = None
+
     def segment(
         self,
         image: str | Path | np.ndarray,
@@ -243,60 +259,85 @@ class Segmenter:
         """
         image_rgb = _to_rgb_numpy(image)
         image_bgr = _to_bgr_numpy(image)
-        h, w = image_rgb.shape[:2]
 
         results = self.yolo(
             source=image_rgb, conf=self.conf, iou=self.iou,
             imgsz=self.imgsz, verbose=False,
         )
-        boxes_xyxy = results[0].boxes.xyxy
+        det = results[0].boxes
+        boxes_xyxy = det.xyxy
 
         if boxes_xyxy.numel() == 0:
-            vis_bgr = _draw_vis(
-                image_rgb, [], None, None, None, alpha=self.alpha,
-            )
+            vis_bgr = _draw_vis(image_rgb, [], alpha=self.alpha)
             return SegResult(
                 image_bgr=image_bgr, vis_bgr=vis_bgr,
                 masks=[], boxes_xyxy=np.empty((0, 4), dtype=int),
                 scores=[], class_ids=[], class_names=[], areas_px=[], total_area_px=0,
             )
 
-        if isinstance(boxes_xyxy, torch.Tensor):
-            boxes_np = boxes_xyxy.cpu().numpy()
+        boxes_np = (
+            boxes_xyxy.cpu().numpy() if isinstance(boxes_xyxy, torch.Tensor)
+            else np.asarray(boxes_xyxy)
+        )
+        cls_ids = det.cls.cpu().numpy().astype(int)
+        det_scores = (
+            det.conf.cpu().numpy() if det.conf is not None
+            else np.zeros(len(cls_ids))
+        )
+
+        def _name(cid: int) -> str:
+            return self.class_names[cid] if cid < len(self.class_names) else str(cid)
+
+        # 目标类（默认水葫芦）框 → SAM；其余类仅检测、不分割
+        if self.target_index is not None:
+            is_target = (cls_ids == self.target_index)
         else:
-            boxes_np = np.asarray(boxes_xyxy)
+            is_target = np.ones(len(cls_ids), dtype=bool)
+        target_idx = np.where(is_target)[0]
+        other_idx = np.where(~is_target)[0]
 
-        self.sam_predictor.set_image(image_rgb)
         masks: list[np.ndarray] = []
-        scores: list[float] = []
-        for box in boxes_np:
-            m, s, _ = self.sam_predictor.predict(box=box, multimask_output=False)
-            masks.append(m[0])
-            scores.append(float(s[0]))
+        sam_scores: list[float] = []
+        if len(target_idx) > 0:
+            self.sam_predictor.set_image(image_rgb)
+            for i in target_idx:
+                m, s, _ = self.sam_predictor.predict(
+                    box=boxes_np[i], multimask_output=False,
+                )
+                masks.append(m[0])
+                sam_scores.append(float(s[0]))
 
-        class_ids = results[0].boxes.cls.cpu().numpy().astype(int).tolist()
-        det_class_names: list[str] = []
-        for cid in class_ids:
-            if cid < len(self.class_names):
-                det_class_names.append(self.class_names[cid])
-            else:
-                det_class_names.append(str(cid))
+        mask_boxes = (
+            boxes_np[target_idx] if len(target_idx)
+            else np.empty((0, 4), dtype=float)
+        )
+        mask_names = [_name(int(cls_ids[i])) for i in target_idx]
+        other_boxes = (
+            boxes_np[other_idx] if len(other_idx)
+            else np.empty((0, 4), dtype=float)
+        )
+        other_names = [_name(int(cls_ids[i])) for i in other_idx]
+        other_scores = [float(det_scores[i]) for i in other_idx]
 
         areas_px = [int(m.sum()) for m in masks]
         total_area_px = sum(areas_px)
 
         vis_bgr = _draw_vis(
-            image_rgb, masks, boxes_np, scores, det_class_names, alpha=self.alpha,
+            image_rgb, masks,
+            mask_boxes=mask_boxes, mask_names=mask_names, mask_scores=sam_scores,
+            other_boxes=other_boxes, other_names=other_names, other_scores=other_scores,
+            alpha=self.alpha,
         )
 
+        # SegResult 字段均与「目标类掩膜」对齐；非目标类仅在可视化中体现
         return SegResult(
             image_bgr=image_bgr,
             vis_bgr=vis_bgr,
             masks=masks,
-            boxes_xyxy=boxes_np.astype(int),
-            scores=scores,
-            class_ids=class_ids,
-            class_names=det_class_names,
+            boxes_xyxy=mask_boxes.astype(int),
+            scores=sam_scores,
+            class_ids=[int(cls_ids[i]) for i in target_idx],
+            class_names=mask_names,
             areas_px=areas_px,
             total_area_px=total_area_px,
         )
@@ -322,6 +363,7 @@ def segment_image(
     imgsz: int = 640,
     alpha: float = 0.45,
     pixels_per_meter: float | None = None,
+    target_class: int | str | None = "hyacinth",
 ) -> SegResult:
     """一键函数：传入图片路径，返回完整的分割结果。
 
@@ -372,5 +414,6 @@ def segment_image(
         iou=iou,
         imgsz=imgsz,
         alpha=alpha,
+        target_class=target_class,
     )
     return seg.segment(image, pixels_per_meter=pixels_per_meter)

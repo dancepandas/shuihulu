@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default=defaults.get("device", 0))
     parser.add_argument("--conf", type=float, default=defaults.get("conf", 0.25))
     parser.add_argument("--iou", type=float, default=defaults.get("iou", 0.5))
+    parser.add_argument(
+        "--target-class",
+        default="hyacinth",
+        help="只评估该类（默认 hyacinth）：仅该类的 GT 多边形与 SAM 掩膜参与 IoU。",
+    )
     return parser.parse_args()
 
 
@@ -84,7 +89,10 @@ def main() -> None:
         sam_checkpoint=args.sam_checkpoint,
         sam_model_type=args.sam_model_type,
         device=args.device,
+        target_class=args.target_class,
     )
+    target_idx = pipeline.target_index
+    print(f"[INFO] 评估目标类索引：{target_idx}（{args.target_class}）")
 
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
     images = sorted(p for p in val_img_dir.iterdir() if p.suffix.lower() in exts)
@@ -117,6 +125,9 @@ def main() -> None:
             for line in f:
                 parts = line.strip().split()
                 if len(parts) < 7:
+                    continue
+                # 只取目标类（默认水葫芦）的 GT 多边形
+                if target_idx is not None and int(parts[0]) != target_idx:
                     continue
                 polygon = np.array([float(x) for x in parts[1:]]).reshape(-1, 2)
                 polygon[:, 0] *= w
