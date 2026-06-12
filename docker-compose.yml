@@ -1,0 +1,11 @@
+services:
+  hyacinth:
+    build: .
+    image: hyacinth-yolo-sam:latest
+    command: ["python", "serve.py", "--yolo", "/models/hyacinth5_best.pt", "--sam", "/models/sam_vit_h.pth", "--device", "cpu"]
+    ports:
+      - "13000:13000"
+    volumes:
+      - ./weights:/models:ro          # 模型文件（hyacinth5_best.pt + sam_vit_h.pth）
+      - ./data:/data:ro               # 输入图片目录（可选；也支持上传）
+    restart: unless-stopped

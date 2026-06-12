@@ -1,0 +1,15 @@
+# Docker ignore
+__pycache__/
+*.pyc
+*.pyo
+.idea/
+.git/
+runs/
+datasets/
+doc/
+tests/
+.claude/
+.opencode/
+yolo26n.pt
+*.md
+*.ipynb
