@@ -10,7 +10,7 @@ GLI(>0.12) + V7 水葫芦 V8 伪标签生成流水线
 
 用法: python scripts/gli_v8_pipeline.py
 """
-import cv2, shutil, warnings
+import cv2, os, shutil, warnings
 from pathlib import Path
 from collections import Counter
 
@@ -66,7 +66,7 @@ def main():
 
     # 收集图片
     images = []
-    for root, _, files in DATA_DIR.walk():
+    for root, _, files in os.walk(DATA_DIR):
         for f in files:
             p = Path(root) / f
             if p.suffix.lower() in SKIP_EXT:
