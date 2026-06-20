@@ -112,8 +112,11 @@ def main():
 
         # 4. WH = GLI - exclude
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        merge_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
         wh_mask = cv2.bitwise_and(veg, cv2.bitwise_not(exclude))
         wh_mask = cv2.morphologyEx(wh_mask, cv2.MORPH_OPEN, kernel)
+        # 合并相邻水葫芦碎片，避免同一目标被拆成多个标签
+        wh_mask = cv2.morphologyEx(wh_mask, cv2.MORPH_CLOSE, merge_kernel, iterations=2)
         wh_cs, _ = cv2.findContours(wh_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         yolo_lines = []
