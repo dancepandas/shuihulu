@@ -6,7 +6,7 @@ GLI(>0.12) + V7 水葫芦 V8 伪标签生成流水线
 2. V7 识别 Boat/Bridge/Structure → 从植被掩膜中排除
 3. WH = GLI_veg - V7_non_WH
 4. V7 tree 与 WH 重叠 > 50% → 吸收为 WH
-5. 标签写入 labels/data/，图片不复制（零额外磁盘占用）
+5. 图片在 datasets/hyacinth8/images/train/，标签写到 ../labels/train/
 
 用法: python scripts/gli_v8_pipeline.py
 """
@@ -21,11 +21,11 @@ warnings.filterwarnings("ignore")
 
 # ── 配置 ──────────────────────────────────────────
 V7_PATH = "runs/hyacinth7_yolo_sam/weights/best.pt"
-DATA_DIR = Path("data")
-LABEL_DIR = Path("labels/data")     # YOLO 自动从此匹配 data/ 中的同名图片
+OUT_DIR = Path("datasets/hyacinth8")
+DATA_DIR = OUT_DIR / "images/train"
+LABEL_DIR = OUT_DIR / "labels/train"
 CONFIG_PATH = Path("configs/dataset_hyacinth8_seg.yaml")
 IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
-SKIP_EXT = {".mrk", ".nav", ".obs", ".rtk", ".zip"}
 NAMES = ["Boat", "Bridge", "Structure", "Water Hyacinth", "tree"]
 
 CONF = 0.10           # V7 置信度
@@ -36,7 +36,6 @@ TREE_OVERLAP = 0.5    # tree 与 WH 重叠超过此比例则吸收
 
 
 def compute_gli_mask(img: np.ndarray) -> np.ndarray:
-    """GLI 固定阈值植被掩膜"""
     rgb = img.astype(np.float32)
     R, G, B = rgb[:, :, 2], rgb[:, :, 1], rgb[:, :, 0]
     gli = (2 * G - R - B) / (2 * G + R + B + 1e-8)
@@ -66,8 +65,6 @@ def main():
     for root, _, files in os.walk(DATA_DIR):
         for f in files:
             p = Path(root) / f
-            if p.suffix.lower() in SKIP_EXT:
-                continue
             if p.suffix.lower() in IMG_EXT:
                 images.append(p)
     print(f"Images: {len(images)}")
@@ -76,7 +73,13 @@ def main():
     tagged, total_wh, total_tree = 0, 0, 0
 
     for idx, img_path in enumerate(sorted(images)):
-        img = cv2.imread(str(img_path))
+        # 跳过空文件（ultralytics patched imread 对此抛异常）
+        if img_path.stat().st_size == 0:
+            continue
+        try:
+            img = cv2.imread(str(img_path))
+        except Exception:
+            continue
         if img is None:
             continue
         h, w = img.shape[:2]
@@ -91,7 +94,7 @@ def main():
         v7_xyxy = r0.boxes.xyxy.cpu().numpy() if len(v7_cls) > 0 else np.zeros((0, 4))
         v7_xy = r0.masks.xy if r0.masks and hasattr(r0.masks, "xy") else []
 
-        # 3. V7 非 WH 掩膜 (Boat=0, Bridge=1, Structure=2)
+        # 3. V7 非 WH 掩膜
         exclude = np.zeros((h, w), np.uint8)
         tree_pts = []
         for j in range(len(v7_cls)):
@@ -143,16 +146,17 @@ def main():
                 yolo_lines.append(f"{c} {rect_to_yolo(x1, y1, x2, y2, w, h)}")
                 cnt[NAMES[c]] += 1
 
-        # 写入标签（只写 txt，不复制图片）
+        # 写入标签：保持与图片相同的相对路径结构
+        rel = img_path.relative_to(DATA_DIR)
+        label_path = LABEL_DIR / rel.with_suffix(".txt")
+        label_path.parent.mkdir(parents=True, exist_ok=True)
         if yolo_lines:
-            (LABEL_DIR / f"{img_path.stem}.txt").write_text(
-                "\n".join(yolo_lines) + "\n", encoding="utf-8")
+            label_path.write_text("\n".join(yolo_lines) + "\n", encoding="utf-8")
             tagged += 1
 
         if (idx + 1) % 100 == 0:
             print(f"  [{idx + 1}/{len(images)}] tagged {tagged}, WH={total_wh}, tree={total_tree}")
 
-    # ── 统计 + 配置 ────────────────────────────
     print(f"\n{'=' * 50}")
     print(f"Images: {len(images)}, Tagged: {tagged}")
     for name in NAMES:
@@ -160,10 +164,9 @@ def main():
     print(f"  (GLI threshold: {GLI_THRESHOLD})")
 
     config = f"""# 水葫芦 GLI(>{GLI_THRESHOLD}) + V7 融合数据集
-# 图片在 data/，标签在 labels/data/
-path: .
-train: data
-val: data
+path: datasets/hyacinth8
+train: images/train
+val: images/train
 
 names:
   0: Boat
@@ -173,7 +176,7 @@ names:
   4: tree
 """
     CONFIG_PATH.write_text(config, encoding="utf-8")
-    print(f"\nConfig: {CONFIG_PATH}")
+    print(f"Config: {CONFIG_PATH}")
     print("Done!")
 
 
