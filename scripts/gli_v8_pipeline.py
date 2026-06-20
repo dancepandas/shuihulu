@@ -6,11 +6,11 @@ GLI(>0.12) + V7 水葫芦 V8 伪标签生成流水线
 2. V7 识别 Boat/Bridge/Structure → 从植被掩膜中排除
 3. WH = GLI_veg - V7_non_WH
 4. V7 tree 与 WH 重叠 > 50% → 吸收为 WH
-5. 输出 YOLO 格式标签到 datasets/hyacinth8/
+5. 标签写入 labels/data/，图片不复制（零额外磁盘占用）
 
 用法: python scripts/gli_v8_pipeline.py
 """
-import cv2, os, shutil, warnings
+import cv2, os, warnings
 from pathlib import Path
 from collections import Counter
 
@@ -22,14 +22,13 @@ warnings.filterwarnings("ignore")
 # ── 配置 ──────────────────────────────────────────
 V7_PATH = "runs/hyacinth7_yolo_sam/weights/best.pt"
 DATA_DIR = Path("data")
-OUT_IMAGES = Path("datasets/hyacinth8/images/train")
-OUT_LABELS = Path("datasets/hyacinth8/labels/train")
+LABEL_DIR = Path("labels/data")     # YOLO 自动从此匹配 data/ 中的同名图片
 CONFIG_PATH = Path("configs/dataset_hyacinth8_seg.yaml")
 IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 SKIP_EXT = {".mrk", ".nav", ".obs", ".rtk", ".zip"}
 NAMES = ["Boat", "Bridge", "Structure", "Water Hyacinth", "tree"]
 
-CONF = 0.10          # V7 置信度
+CONF = 0.10           # V7 置信度
 GLI_THRESHOLD = 0.12  # 固定 GLI 阈值
 MIN_AREA = 50         # 最小轮廓面积 (px)
 TREE_OVERLAP = 0.5    # tree 与 WH 重叠超过此比例则吸收
@@ -57,10 +56,8 @@ def rect_to_yolo(x1, y1, x2, y2, w, h) -> str:
     return f"{x1 / w:.6f} {y1 / h:.6f} {x2 / w:.6f} {y1 / h:.6f} {x2 / w:.6f} {y2 / h:.6f} {x1 / w:.6f} {y2 / h:.6f}"
 
 
-# ── 主流程 ────────────────────────────────────────
 def main():
-    OUT_IMAGES.mkdir(parents=True, exist_ok=True)
-    OUT_LABELS.mkdir(parents=True, exist_ok=True)
+    LABEL_DIR.mkdir(parents=True, exist_ok=True)
 
     model = YOLO(V7_PATH)
 
@@ -84,12 +81,11 @@ def main():
             continue
         h, w = img.shape[:2]
 
-        # 1. GLI 固定阈值
+        # 1. GLI
         veg = compute_gli_mask(img)
 
         # 2. V7 推理
-        results = model(str(img_path), conf=CONF, iou=0.5, imgsz=640,
-                        verbose=False)
+        results = model(str(img_path), conf=CONF, iou=0.5, imgsz=640, verbose=False)
         r0 = results[0]
         v7_cls = r0.boxes.cls.cpu().numpy().astype(int) if r0.boxes is not None and len(r0.boxes) > 0 else np.array([])
         v7_xyxy = r0.boxes.xyxy.cpu().numpy() if len(v7_cls) > 0 else np.zeros((0, 4))
@@ -119,7 +115,7 @@ def main():
 
         yolo_lines = []
 
-        # 写入 WH
+        # WH
         wh_union = np.zeros((h, w), np.uint8)
         for ct in wh_cs:
             if cv2.contourArea(ct) > MIN_AREA:
@@ -128,7 +124,7 @@ def main():
                 cnt["Water Hyacinth"] += 1
                 total_wh += 1
 
-        # 5. tree 与 WH 重叠判断
+        # 5. tree 重叠判断
         for pts in tree_pts:
             tm = np.zeros((h, w), np.uint8)
             cv2.fillPoly(tm, [pts.astype(np.int32)], 255)
@@ -139,7 +135,7 @@ def main():
                 cnt["tree"] += 1
                 total_tree += 1
 
-        # 6. Boat/Bridge/Structure 直接保留
+        # 6. Boat/Bridge/Structure
         for j in range(len(v7_cls)):
             c = int(v7_cls[j])
             if c in (0, 1, 2):
@@ -147,18 +143,11 @@ def main():
                 yolo_lines.append(f"{c} {rect_to_yolo(x1, y1, x2, y2, w, h)}")
                 cnt[NAMES[c]] += 1
 
-        # 写入标签 + 复制图片
+        # 写入标签（只写 txt，不复制图片）
         if yolo_lines:
-            stem = img_path.stem
-            (OUT_LABELS / f"{stem}.txt").write_text("\n".join(yolo_lines) + "\n", encoding="utf-8")
-            dst = OUT_IMAGES / img_path.name
-            if not dst.exists():
-                shutil.copy2(img_path, dst)
+            (LABEL_DIR / f"{img_path.stem}.txt").write_text(
+                "\n".join(yolo_lines) + "\n", encoding="utf-8")
             tagged += 1
-        else:
-            dst = OUT_IMAGES / img_path.name
-            if not dst.exists():
-                shutil.copy2(img_path, dst)
 
         if (idx + 1) % 100 == 0:
             print(f"  [{idx + 1}/{len(images)}] tagged {tagged}, WH={total_wh}, tree={total_tree}")
@@ -171,9 +160,10 @@ def main():
     print(f"  (GLI threshold: {GLI_THRESHOLD})")
 
     config = f"""# 水葫芦 GLI(>{GLI_THRESHOLD}) + V7 融合数据集
-path: datasets/hyacinth8
-train: images/train
-val: images/train
+# 图片在 data/，标签在 labels/data/
+path: .
+train: data
+val: data
 
 names:
   0: Boat
