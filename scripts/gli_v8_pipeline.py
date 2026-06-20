@@ -10,7 +10,7 @@ GLI(>0.12) + V7 水葫芦 V8 伪标签生成流水线
 
 用法: python scripts/gli_v8_pipeline.py
 """
-import cv2, os, warnings
+import cv2, os, random, shutil, warnings
 from pathlib import Path
 from collections import Counter
 
@@ -163,10 +163,40 @@ def main():
         print(f"  {name}: {cnt[name]}")
     print(f"  (GLI threshold: {GLI_THRESHOLD})")
 
+    # ── 划分验证集 (8:2) ──────────────────────
+    VAL_IMG_DIR = OUT_DIR / "images/val"
+    VAL_LABEL_DIR = OUT_DIR / "labels/val"
+    VAL_IMG_DIR.mkdir(parents=True, exist_ok=True)
+    VAL_LABEL_DIR.mkdir(parents=True, exist_ok=True)
+
+    random.seed(42)
+    all_labeled = sorted(LABEL_DIR.rglob("*.txt"))
+    n_val = max(1, int(len(all_labeled) * 0.2))
+    val_files = set(random.sample(all_labeled, n_val))
+    val_moved = 0
+    for lf in val_files:
+        rel = lf.relative_to(LABEL_DIR)
+        # 移动标签
+        dst_label = VAL_LABEL_DIR / rel
+        dst_label.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(lf), str(dst_label))
+        # 移动对应图片
+        for ext in IMG_EXT:
+            img = (DATA_DIR / rel).with_suffix(ext)
+            if img.exists():
+                dst_img = (VAL_IMG_DIR / rel).with_suffix(ext)
+                dst_img.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(img), str(dst_img))
+                val_moved += 1
+                break
+    train_imgs = sum(1 for _ in DATA_DIR.rglob("*") if _.suffix.lower() in IMG_EXT)
+    val_imgs = sum(1 for _ in VAL_IMG_DIR.rglob("*") if _.suffix.lower() in IMG_EXT)
+    print(f"  Train: {train_imgs} images, Val: {val_imgs} images")
+
     config = f"""# 水葫芦 GLI(>{GLI_THRESHOLD}) + V7 融合数据集
 path: datasets/hyacinth8
 train: images/train
-val: images/train
+val: images/val
 
 names:
   0: Boat
