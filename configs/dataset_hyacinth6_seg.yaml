@@ -1,0 +1,13 @@
+# 水葫芦 5 类实例分割数据集（Label Studio 标注，2026-06-17）。
+# Water Hyacinth = 3。V6 训练用。
+
+path: datasets/ls_new_labels
+train: images/train
+val: images/train
+
+names:
+  0: Boat
+  1: Bridge
+  2: Structure
+  3: Water Hyacinth
+  4: tree

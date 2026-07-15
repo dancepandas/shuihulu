@@ -1,0 +1,11 @@
+# 水葫芦 GLI(>0.12) + V7 融合数据集
+path: datasets/hyacinth8
+train: images/train
+val: images/val
+
+names:
+  0: Boat
+  1: Bridge
+  2: Structure
+  3: Water Hyacinth
+  4: tree
