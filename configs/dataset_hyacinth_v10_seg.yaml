@@ -1,0 +1,11 @@
+# V10 数据集 (LS手动标注 + V9 合并, LS mask→polygon转换)
+path: datasets/hyacinth_v10
+train: images/train
+val: images/val
+
+names:
+  0: Boat
+  1: Bridge
+  2: Structure
+  3: Water Hyacinth
+  4: tree

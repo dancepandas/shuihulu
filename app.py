@@ -10,19 +10,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import cv2, numpy as np
+import cv2, numpy as np, torch
 from flask import Flask, request, jsonify, render_template_string
 from ultralytics import YOLO
 
 # ═══════════ 配置 ═══════════
-YOLO_MODEL_PATH = r"D:\chengs\9.project\shuihulu\runs\segment\runs\segment\hyacinth9_yolo_sam3\weights\best.pt"       # V9
-YOLO_MODEL_FALLBACK = "runs/hyacinth8_yolo_sam/weights/best.pt"   # V8 兜底
+YOLO_MODEL_PATH = r"D:\chengs\9.project\shuihulu\runs\segment\runs\segment\hyacinth9_yolo_sam3\weights\best.pt"
+YOLO_MODEL_FALLBACK = r"D:\chengs\9.project\shuihulu\runs\hyacinth8_yolo_sam\weights\best.pt"
 SAM_WEIGHTS = r"D:\chengs\9.project\shuihulu\weights\sam_vit_h.pth"
+SEGFORMER_PATH = r"D:\chengs\9.project\shuihulu\runs\segformer\segformer_b2_ls+v9"
+
+# SegFormer 推理预处理 (ImageNet 归一化)
+SF_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+SF_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+SEGFORMER_PATH = r"D:\chengs\9.project\shuihulu\runs\segformer\segformer_b2_ls+v9"  # SegFormer B2
 NAMES = ["Boat", "Bridge", "Structure", "Water Hyacinth", "tree"]
 # COLORS 不再使用，每个实例随机颜色
 MIN_AREA = 50
 GLI_THRESHOLD = 0.12
 TREE_OVERLAP = 0.5
+SEGFORMER_SIZE = 512   # SegFormer 推理分辨率
 
 # ═══════════ 加载模型 ═══════════
 yolo_path = YOLO_MODEL_PATH if Path(YOLO_MODEL_PATH).exists() else YOLO_MODEL_FALLBACK
@@ -43,6 +50,21 @@ if Path(SAM_WEIGHTS).exists():
         print(f"[init] SAM load failed: {e}")
 else:
     print("[init] SAM weights not found, YOLO+SAM mode disabled")
+
+# SegFormer
+segformer_model = None
+segformer_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if Path(SEGFORMER_PATH).joinpath("config.json").exists():
+    try:
+        from transformers import SegformerForSemanticSegmentation
+        segformer_model = SegformerForSemanticSegmentation.from_pretrained(SEGFORMER_PATH)
+        segformer_model.to(segformer_device)
+        segformer_model.eval()
+        print("[init] SegFormer B2 loaded")
+    except Exception as e:
+        print(f"[init] SegFormer load failed: {e}")
+else:
+    print(f"[init] SegFormer not found at {SEGFORMER_PATH}, mode disabled")
 
 # ═══════════ GLI Pipeline ═══════════
 def compute_gli_mask(img_bgr):
@@ -175,6 +197,41 @@ def yolo_sam(img_bgr, imgsz):
             if len(largest) >= 3:
                 dets.append((name, largest[:, 0, :], float(score)))
     return dets
+
+
+def segformer_predict(img_bgr):
+    """SegFormer 语义分割 → 每个连通域作为一个检测"""
+    h, w = img_bgr.shape[:2]
+
+    # 预处理: RGB → resize 512 → normalize
+    rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    rgb = cv2.resize(rgb, (SEGFORMER_SIZE, SEGFORMER_SIZE), interpolation=cv2.INTER_LINEAR)
+    tensor = torch.from_numpy(rgb.astype(np.float32) / 255.0).permute(2, 0, 1)  # (3,H,W)
+    tensor = (tensor - torch.from_numpy(SF_MEAN).view(3, 1, 1)) / torch.from_numpy(SF_STD).view(3, 1, 1)
+    tensor = tensor.unsqueeze(0).to(segformer_device)  # (1,3,512,512)
+
+    with torch.no_grad():
+        logits = segformer_model(pixel_values=tensor).logits  # (1,6,128,128)
+        # 上采样回原始尺寸
+        logits = torch.nn.functional.interpolate(
+            logits, size=(h, w), mode="bilinear", align_corners=False
+        )
+        class_map = logits[0].argmax(dim=0).cpu().numpy()  # (H,W) values 0-5
+
+    # 每个非背景类找连通域
+    dets = []
+    for cls_id in range(1, 6):  # 1=Boat, ..., 5=tree
+        binary = (class_map == cls_id).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        name = NAMES[cls_id - 1]  # Boat=0, Bridge=1, ..., tree=4
+        for cnt in contours:
+            if len(cnt) < 3: continue
+            area = cv2.contourArea(cnt)
+            if area < MIN_AREA: continue
+            dets.append((name, cnt[:, 0, :], -1.0))  # -1 = no confidence score
+
+    return dets
+
 
 # ═══════════ 可视化 ═══════════
 def draw_detections(img_bgr, detections):
@@ -388,6 +445,7 @@ body {
           <label><input type="checkbox" name="method" value="yolo" checked><span>纯 YOLO</span></label>
           <label><input type="checkbox" name="method" value="gli" checked><span>YOLO + GLI</span></label>
           <label><input type="checkbox" name="method" value="sam" checked><span>YOLO + SAM</span></label>
+          <label><input type="checkbox" name="method" value="segformer"><span>SegFormer</span></label>
         </div>
       </div>
       <div class="opt-group">
@@ -432,6 +490,13 @@ body {
         <div class="col-error" id="err-sam"></div>
         <div class="col-footer"><a class="btn-download disabled" id="dl-sam" download>⬇ 下载结果</a></div>
       </div>
+      <div class="result-col" id="col-segformer" style="display:none">
+        <div class="col-header"><h3>SegFormer</h3><div class="spinner" id="spin-segformer"></div></div>
+        <img id="img-segformer" class="result-img" alt="segformer">
+        <div class="stats" id="stats-segformer"></div>
+        <div class="col-error" id="err-segformer"></div>
+        <div class="col-footer"><a class="btn-download disabled" id="dl-segformer" download>⬇ 下载结果</a></div>
+      </div>
     </div>
   </div>
 
@@ -452,6 +517,7 @@ const METHODS = {
   yolo: { file: '纯YOLO' },
   gli:  { file: 'YOLO+GLI' },
   sam:  { file: 'YOLO+SAM' },
+  segformer: { file: 'SegFormer' },
 };
 
 fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
@@ -497,7 +563,7 @@ async function runDetection() {
   document.getElementById('origImg').src = uploadedB64;
 
   // 重置三列：选中的显示+转圈，未选的隐藏
-  ['yolo', 'gli', 'sam'].forEach(m => {
+  ['yolo', 'gli','sam', 'segformer'].forEach(m => {
     const show = methods.includes(m);
     document.getElementById('col-' + m).style.display = show ? 'block' : 'none';
     if (show) {
@@ -578,6 +644,10 @@ def predict():
             if sam_segmenter is None:
                 return jsonify({"error": "YOLO+SAM 未就绪: SAM 权重或 segmenter 加载失败"}), 503
             detections = yolo_sam(img, imgsz)
+        elif mode == "segformer":
+            if segformer_model is None:
+                return jsonify({"error": "SegFormer 未就绪: 模型未训练或未找到"}), 503
+            detections = segformer_predict(img)
         else:
             return jsonify({"error": f"未知模型模式: {mode}"}), 400
 
