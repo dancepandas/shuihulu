@@ -1,111 +1,127 @@
-# Shuihulu YOLOv8 + SAM 水葫芦面积识别
+# Shuihulu — 河道水葫芦语义分割与识别
 
-基于论文《基于YOLOv7的水葫芦目标检测方法研究》中的 YOLO + SAM 两阶段组合方案复现：
+面向河道水葫芦实时监测的语义分割 / 目标识别项目。核心为**轻量化单阶段语义分割方法 LWH-Seg**（基于 SegFormer-B2 优化），并内置 **YOLOv8-seg + SAM 两阶段**与 **纯 YOLO / YOLO+GLI 融合**等对比方案与 Flask 推理服务。
 
-- **第一阶段 (YOLOv8-seg)**：目标检测，输出水葫芦边界框
-- **第二阶段 (SAM)**：以边界框为提示，生成像素级精细掩膜
-- **面积估算**：从掩膜计算水葫芦覆盖面积
+- 六类语义分割：背景 / 船只 / 桥梁 / 岸基建筑 / 水葫芦 / 树木
+- 论文（中文核心）：基于 SegFormer-B2 优化的河道水葫芦轻量化语义分割方法
+- 推理速度：约 7.4 ms/图（RTX 2060），支持机载/边缘部署
+
+## 方法概览
+
+### 本文方法 LWH-Seg（SegFormer-B2 单阶段）
+
+以轻量级层次化 Transformer 网络 **SegFormer-B2**（MiT-B2 编码器 + 全 MLP 解码器，27.35 M 参数）为分割主干，三项针对性设计：
+
+- **数据层面**：多源标注融合 + 针对性数据增强（多尺度、多光照）
+- **损失层面**：类别加权交叉熵 + Dice 联合损失（缓解水葫芦类别不平衡）
+- **训练策略**：两段式训练（第一阶段冻结编码器、第二阶段联合微调）
+
+单次前向直接输出六类像素级分割结果，无需检测框提示。
+
+### 对比基线
+
+| 方案 | 说明 |
+|------|------|
+| SegFormer-B2-FT | 直接微调基线（标准交叉熵 + 基础增强） |
+| YOLOv8-seg + SAM | 两阶段方案：YOLOv8-seg 定位水葫芦框，SAM 生成像素级掩膜 |
+| 纯 YOLO / YOLO+GLI | 目标检测基线（GLI 为植被指数融合） |
 
 ## 目录结构
 
 ```text
+app.py                          # Flask 单文件 Web 推理服务（纯YOLO / YOLO+GLI / YOLO+SAM / SegFormer 四模式）
+main.py / serve.py              # 服务入口
 configs/
-  dataset_hyacinth_seg.yaml   # 数据集配置
-  runtime.yaml                # 运行参数（含 SAM 配置）
+  dataset_hyacinth_v10_seg.yaml # 数据集配置（V5–V10 多版本）
+  runtime.yaml                  # 运行参数
 scripts/
-  train_yolo_sam.py           # YOLOv8 训练（迁移学习 + 冻结 P3）
-  predict_yolo_sam.py         # YOLO+SAM 两阶段推理 + 面积估算
-  val_yolo_sam.py             # YOLO+SAM 验证（IoU 评估）
-  train.py                    # 纯 YOLOv8-seg 基线训练
-  val.py                      # 纯 YOLOv8-seg 验证
-  predict.py                  # 纯 YOLOv8-seg 推理
-  download_weights.py         # 权重下载
+  segformer_train.py            # SegFormer-B2 语义分割训练（本文方法）
+  eval_paper_models.py          # 论文方法评测
+  build_seg_dataset.py          # 数据集构建
+  train_yolo_sam.py             # YOLOv8-seg 训练（两阶段第一阶段）
+  predict_yolo_sam.py           # YOLO+SAM 两阶段推理 + 面积估算
+  val_yolo_sam.py               # YOLO+SAM 验证
+  gli_v6_pipeline.py            # GLI 植被指数融合 pipeline
+  preanno_v9_ls.py              # Label Studio 笔刷预标注
+  download_weights.py           # 权重下载
+  build_docx_shuili.py          # 期刊投稿稿 docx 生成
+  fig1_framework.py             # 方法框架图生成
 src/
-  shuihulu_yolo_sam/
-    __init__.py
-    model.py                  # YOLO+SAM 两阶段流水线核心
-  shuihulu_yolov10_seg/
-    __init__.py
-    model.py                  # YOLOv8-seg 基线
-requirements.txt
+  shuihulu_yolo_sam/            # YOLO+SAM 两阶段流水线
+  shuihulu_yolov10_seg/         # YOLOv8-seg 基线
+  shuihulu_distill/             # 蒸馏损失等
 ```
 
 ## 安装
 
 ```bash
 pip install -r requirements.txt
+# 可选：前端依赖（docx 文档生成）
+npm install
 ```
 
-## 下载模型权重
+## 数据集
 
-```bash
-# 下载 YOLOv8-seg 预训练权重
-python scripts/download_weights.py --model yolov8n-seg.pt
-
-# 下载 SAM ViT-H 权重（论文指定版本）
-python scripts/download_weights.py --model sam_vit_h.pth
-```
-
-内置权重：`yolov8n-seg.pt` / `yolov8s-seg.pt` / `yolov8m-seg.pt` / `yolov8l-seg.pt` / `yolov8x-seg.pt` / `sam_vit_h.pth` / `sam_vit_l.pth` / `sam_vit_b.pth`
-
-## 数据集准备
-
-按 Ultralytics 实例分割目录组织：
+按语义分割目录组织：
 
 ```text
 datasets/
-  hyacinth_seg/
-    images/
-      train/
-      val/
-    labels/
-      train/
-      val/
+  hyacinth_seg_p7p9/            # SegFormer 训练集（project-7/9 笔刷标注，336 对）
+    images/{train,val}/
+    masks/{train,val}/          # 0=背景 1=船只 2=桥梁 3=岸基建筑 4=水葫芦 5=树木
+  hyacinth_v10/                 # YOLOv8-seg 数据集（Ultralytics 格式）
+    images/{train,val}/
+    labels/{train,val}/
 ```
 
-修改 `configs/dataset_hyacinth_seg.yaml` 中的路径和类别名。
-
-## 训练 YOLOv8（第一阶段）
+## 训练 SegFormer-B2（本文方法）
 
 ```bash
-python scripts/train_yolo_sam.py \
-  --model weights/yolov8n-seg.pt \
-  --data configs/dataset_hyacinth_seg.yaml
+python scripts/segformer_train.py
 ```
 
-训练策略（与论文一致）：
-- COCO 预训练权重迁移学习
-- 冻结 FPN P3 层权重（`--no-freeze-p3` 可取消）
-- SGD 优化器，640×640 输入，100 轮，早停 50 轮
-- 可选遗传算法超参数搜索：`--tune --tune-iterations 300`
+- 主干：`weights/segformer_b2`（预训练），6 类，512×512
+- 优化器：AdamW（lr 6e-5，wd 0.01），余弦退火，80 epoch
+- 输出：`runs/segformer/segformer_b2_v2`（直接微调基线）
+- 本文完整方案（多源融合 + 联合损失 + 两段式训练）对应 `runs/segformer/segformer_b2_ls+v9`
 
-## 两阶段推理 + 面积估算
+### 新标签体系 v10（LS project 10 笔刷标注，5 类）
 
 ```bash
-python scripts/predict_yolo_sam.py \
-  --yolo-model runs/segment/hyacinth_yolo_sam/weights/best.pt \
-  --sam-checkpoint weights/sam_vit_h.pth \
-  --source path/to/image_or_folder \
-  --save \
-  --pixels-per-meter 100
+python scripts/segformer_train_v10.py
 ```
 
-输出：可视化叠加图 + 各目标掩膜 + 覆盖面积（像素数或平方米）。
+- 数据集：`datasets/hyacinth_ls_v10/{images,masks}/{train,val}`（243 train / 61 val）
+- 类别：`0 water, 1 water_hyacinth, 2 hard_structure, 3 shore_vegetation, 4 other_aquatic_vegetation`
+- 主干：`nvidia/segformer-b2-finetuned-ade-512-512`（ADE20K 语义分割预训练；本地无则自动从 HF 下载）
+- 输入 640×640，batch=1 + 梯度累积 4 步
+- 损失：类别加权 CE + Dice 联合（水葫芦权重最高）
+- 策略：两段式（冻结编码器 20 epoch → 解冻联合微调 60 epoch）
+- 输出：`runs/segformer/segformer_b2_ls_v10`
 
-## 验证
+### 构建 v10 数据集（从 LS 导出）
 
 ```bash
-python scripts/val_yolo_sam.py \
-  --yolo-model runs/segment/hyacinth_yolo_sam/weights/best.pt \
-  --sam-checkpoint weights/sam_vit_h.pth \
-  --data configs/dataset_hyacinth_seg.yaml
+python scripts/pull_ls_p10.py            # 拉元数据 + 原图 → data/ls_export_p10/
+python scripts/pull_ls_p10_masks.py      # 解码 value.rle → 每标签 PNG
+python scripts/build_hyacinth_ls_v10.py  # 合并成 5 类索引 mask → datasets/hyacinth_ls_v10/
+python scripts/split_seg_dataset.py      # 8:2 切 train/val
 ```
 
-## 模型架构说明
+## Web 推理服务
 
-| 阶段 | 模型 | 职责 |
-|------|------|------|
-| Step 1 | YOLOv8-seg | Backbone(C2f) + Neck(FPN+PAN) + Head(Anchor-Free)，输出边界框 |
-| Step 2 | SAM (ViT-H) | 零样本分割，接收边界框提示，输出像素级掩膜 |
+```bash
+python app.py
+```
 
-SAM 无需针对水葫芦重新训练，利用其零样本学习能力直接精细分割。
+四种模式（POST /predict）：
+
+- **纯 YOLO**：YOLOv8-seg 输出水葫芦边界框
+- **YOLO+GLI**：YOLO 检测 + GLI 植被指数融合
+- **YOLO+SAM**：YOLOv8-seg 定位 + SAM 精细掩膜（两阶段）
+- **SegFormer**：单次前向直接输出六类像素级分割（本文方法，512×512）
+
+## 评测指标
+
+- mAcc / mIoU / 水葫芦类别 IoU（WH IoU）
+- 参数量 / 模型体积 / 单图推理时间

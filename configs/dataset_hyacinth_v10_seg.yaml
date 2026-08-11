@@ -1,11 +1,14 @@
-# V10 数据集 (LS手动标注 + V9 合并, LS mask→polygon转换)
-path: datasets/hyacinth_v10
+# V10 语义分割数据集 (Label Studio project 10 笔刷标注, 5类新标签体系)
+# 训练: python scripts/segformer_train_v10.py
+# 目录: datasets/hyacinth_ls_v10/{images,masks}/{train,val}
+path: datasets/hyacinth_ls_v10
 train: images/train
 val: images/val
+mask: masks
 
 names:
-  0: Boat
-  1: Bridge
-  2: Structure
-  3: Water Hyacinth
-  4: tree
+  0: water
+  1: water_hyacinth
+  2: hard_structure
+  3: shore_vegetation
+  4: other_aquatic_vegetation
