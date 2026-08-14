@@ -19,17 +19,21 @@ YOLO_MODEL_PATH = r"D:\chengs\9.project\shuihulu\runs\segment\runs\segment\hyaci
 YOLO_MODEL_FALLBACK = r"D:\chengs\9.project\shuihulu\runs\hyacinth8_yolo_sam\weights\best.pt"
 SAM_WEIGHTS = r"D:\chengs\9.project\shuihulu\weights\sam_vit_h.pth"
 SEGFORMER_PATH = r"D:\chengs\9.project\shuihulu\runs\segformer\segformer_b2_ls+v9"
+SEGFORMER_V10_PATH = r"D:\chengs\9.project\shuihulu\runs\segformer\segformer_b2_ls_v11b"
 
 # SegFormer 推理预处理 (ImageNet 归一化)
 SF_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 SF_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-SEGFORMER_PATH = r"D:\chengs\9.project\shuihulu\runs\segformer\segformer_b2_ls+v9"  # SegFormer B2
 NAMES = ["Boat", "Bridge", "Structure", "Water Hyacinth", "tree"]
 # COLORS 不再使用，每个实例随机颜色
 MIN_AREA = 50
 GLI_THRESHOLD = 0.12
 TREE_OVERLAP = 0.5
-SEGFORMER_SIZE = 512   # SegFormer 推理分辨率
+SEGFORMER_SIZE = 512   # SegFormer 推理分辨率 (v9)
+SEGFORMER_V10_SIZE = 640  # SegFormer v10 推理分辨率 (训练用 640)
+# v10 5类: 0=water(背景) 1=water_hyacinth 2=hard_structure 3=shore_vegetation 4=other_aquatic_vegetation
+V10_NAMES = {1: "Water Hyacinth", 2: "Hard Structure", 3: "Shore Vegetation",
+             4: "Other Aquatic Veg"}
 
 # ═══════════ 加载模型 ═══════════
 yolo_path = YOLO_MODEL_PATH if Path(YOLO_MODEL_PATH).exists() else YOLO_MODEL_FALLBACK
@@ -65,6 +69,20 @@ if Path(SEGFORMER_PATH).joinpath("config.json").exists():
         print(f"[init] SegFormer load failed: {e}")
 else:
     print(f"[init] SegFormer not found at {SEGFORMER_PATH}, mode disabled")
+
+# SegFormer v10 (5类新标签)
+segformer_v10_model = None
+if Path(SEGFORMER_V10_PATH).joinpath("config.json").exists():
+    try:
+        from transformers import SegformerForSemanticSegmentation
+        segformer_v10_model = SegformerForSemanticSegmentation.from_pretrained(SEGFORMER_V10_PATH)
+        segformer_v10_model.to(segformer_device)
+        segformer_v10_model.eval()
+        print("[init] SegFormer v10 (5类) loaded")
+    except Exception as e:
+        print(f"[init] SegFormer v10 load failed: {e}")
+else:
+    print(f"[init] SegFormer v10 not found at {SEGFORMER_V10_PATH}, mode disabled")
 
 # ═══════════ GLI Pipeline ═══════════
 def compute_gli_mask(img_bgr):
@@ -229,6 +247,42 @@ def segformer_predict(img_bgr):
             area = cv2.contourArea(cnt)
             if area < MIN_AREA: continue
             dets.append((name, cnt[:, 0, :], -1.0))  # -1 = no confidence score
+
+    return dets
+
+
+def segformer_v10_predict(img_bgr):
+    """SegFormer v10 (5类) 语义分割 → 每个连通域作为一个检测
+    类别: 0=water(水体背景, 不检测) 1=water_hyacinth 2=hard_structure
+          3=shore_vegetation 4=other_aquatic_vegetation
+    """
+    h, w = img_bgr.shape[:2]
+
+    # 预处理: RGB → resize 640 → normalize (v10 训练分辨率)
+    rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    rgb = cv2.resize(rgb, (SEGFORMER_V10_SIZE, SEGFORMER_V10_SIZE), interpolation=cv2.INTER_LINEAR)
+    tensor = torch.from_numpy(rgb.astype(np.float32) / 255.0).permute(2, 0, 1)
+    tensor = (tensor - torch.from_numpy(SF_MEAN).view(3, 1, 1)) / torch.from_numpy(SF_STD).view(3, 1, 1)
+    tensor = tensor.unsqueeze(0).to(segformer_device)
+
+    with torch.no_grad():
+        logits = segformer_v10_model(pixel_values=tensor).logits  # (1,5,160,160)
+        logits = torch.nn.functional.interpolate(
+            logits, size=(h, w), mode="bilinear", align_corners=False
+        )
+        class_map = logits[0].argmax(dim=0).cpu().numpy()  # (H,W) values 0-4
+
+    # 前景类 (跳过 0=water): 每个类找连通域
+    dets = []
+    for cls_id in range(1, 5):  # 1=water_hyacinth, 2=hard_structure, 3=shore_vegetation, 4=other_aquatic_vegetation
+        binary = (class_map == cls_id).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        name = V10_NAMES[cls_id]
+        for cnt in contours:
+            if len(cnt) < 3: continue
+            area = cv2.contourArea(cnt)
+            if area < MIN_AREA: continue
+            dets.append((name, cnt[:, 0, :], -1.0))
 
     return dets
 
@@ -446,6 +500,7 @@ body {
           <label><input type="checkbox" name="method" value="gli" checked><span>YOLO + GLI</span></label>
           <label><input type="checkbox" name="method" value="sam" checked><span>YOLO + SAM</span></label>
           <label><input type="checkbox" name="method" value="segformer"><span>SegFormer</span></label>
+          <label><input type="checkbox" name="method" value="segformer_v10" checked><span>SegFormer-v10</span></label>
         </div>
       </div>
       <div class="opt-group">
@@ -497,6 +552,13 @@ body {
         <div class="col-error" id="err-segformer"></div>
         <div class="col-footer"><a class="btn-download disabled" id="dl-segformer" download>⬇ 下载结果</a></div>
       </div>
+      <div class="result-col" id="col-segformer_v10" style="display:none">
+        <div class="col-header"><h3>SegFormer-v10</h3><div class="spinner" id="spin-segformer_v10"></div></div>
+        <img id="img-segformer_v10" class="result-img" alt="segformer_v10">
+        <div class="stats" id="stats-segformer_v10"></div>
+        <div class="col-error" id="err-segformer_v10"></div>
+        <div class="col-footer"><a class="btn-download disabled" id="dl-segformer_v10" download>⬇ 下载结果</a></div>
+      </div>
     </div>
   </div>
 
@@ -518,6 +580,7 @@ const METHODS = {
   gli:  { file: 'YOLO+GLI' },
   sam:  { file: 'YOLO+SAM' },
   segformer: { file: 'SegFormer' },
+  segformer_v10: { file: 'SegFormer-v10' },
 };
 
 fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
@@ -563,7 +626,7 @@ async function runDetection() {
   document.getElementById('origImg').src = uploadedB64;
 
   // 重置三列：选中的显示+转圈，未选的隐藏
-  ['yolo', 'gli','sam', 'segformer'].forEach(m => {
+  ['yolo', 'gli','sam', 'segformer', 'segformer_v10'].forEach(m => {
     const show = methods.includes(m);
     document.getElementById('col-' + m).style.display = show ? 'block' : 'none';
     if (show) {
@@ -648,6 +711,10 @@ def predict():
             if segformer_model is None:
                 return jsonify({"error": "SegFormer 未就绪: 模型未训练或未找到"}), 503
             detections = segformer_predict(img)
+        elif mode == "segformer_v10":
+            if segformer_v10_model is None:
+                return jsonify({"error": "SegFormer v10 未就绪: 模型未训练或未找到"}), 503
+            detections = segformer_v10_predict(img)
         else:
             return jsonify({"error": f"未知模型模式: {mode}"}), 400
 
