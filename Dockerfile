@@ -27,8 +27,8 @@ RUN pip install --no-cache-dir \
     pyyaml \
     "segment-anything>=1.0"
 
-COPY src/ /app/src/
-COPY serve.py /app/
+COPY yolo_sam/src/ /app/src/
+COPY yolo_sam/serve.py /app/
 
 WORKDIR /app
 EXPOSE 13000

@@ -1,0 +1,305 @@
+基于 U-Net 与三角窗注意力机制的水葫芦语义分割方法
+
+×××1，×××2，×××3，×××4
+
+（1. ××××大学 ××××学院，××× 省 ××××；2. ××××单位；3. ……）
+
+摘  要：【目的】针对无人机航拍河道影像中水葫芦像素级精细识别的需求，提出一种融合三角窗注意力（Triangular Window Attention, TWA）与 U-Net 的语义分割方法 TWAU-Net。【方法】与标准卷积核及方形窗口注意力的对称感受野不同，所提 TWA 模块在 M×M 局部窗口内沿主对角线构造下三角或右上三角掩码，使每个位置仅能关注自身左上方或右下方的 token，赋予网络对叶缘、桥墩、船体等方向性纹理的敏感性；在 U-Net 的 4 个跳跃连接处均嵌入 TWA 模块构成 TWAU-Net，并采用类别加权交叉熵与 Dice 损失的加权和缓解类别不均衡。【结果】在自建的 2300 余张太湖流域无人机航拍水葫芦数据集上开展对比、同位等量对照与消融实验，结果表明 TWAU-Net 的水葫芦类 IoU 与整体 mIoU 分别为 0.7807 与 0.8729，较 ResNet34 骨干的 U-Net 提高 18.45% 与 12.42%；在与 TWA 完全相同的 4 个跳跃连接处嵌入同量级的 CBAM 与 Triplet Attention，其水葫芦类 IoU 仍较 TWAU-Net 低 7.60% 与 6.01%；参数量为 27.20 M，单图推理时延为 34.52 ms。【结论】消融实验确定下三角方向与窗口尺寸 M=4 为最优组合，三角窗注意力可有效改善对水葫芦叶缘等方向性纹理的像素级分割。
+
+关键词：水葫芦；语义分割；U-Net；三角窗注意力；无人机遥感
+
+中图分类号：TP391.41　　 文献标志码：A
+
+Semantic Segmentation of Water Hyacinth Based on U-Net with Triangular Window Attention
+
+×××1, ×××2, ×××3, ×××4
+
+(1. ×××× University, ××××, China; 2. ……)
+
+Abstract: [Objective] To meet the demand of pixel-level fine identification of water hyacinth in UAV images over river channels, a semantic segmentation method named TWAU-Net is proposed by integrating triangular window attention (TWA) into U-Net. [Methods] Unlike the symmetric receptive fields of standard convolution kernels and square-window attention, the TWA module constructs lower-triangular or upper-right-triangular masks along the main diagonal within an M×M local window, so that each position attends only to tokens in its upper-left or lower-right neighborhood, endowing the network with sensitivity to directional textures such as leaf margins, piers and hulls. TWA modules are embedded at all the four skip connections of U-Net, and a weighted sum of class-weighted cross-entropy and Dice losses is adopted to alleviate class imbalance. [Results] Comparison, same-position equivalent-control and ablation experiments are conducted on a self-built dataset of more than 2300 UAV water-hyacinth images collected from rivers and lakes in the Taihu Basin. The results show that TWAU-Net achieves a water-hyacinth IoU of 0.7807 and a mean IoU (mIoU) of 0.8729, 18.45% and 12.42% higher than ResNet34-backed U-Net, respectively; when CBAM and Triplet Attention of similar capacity are embedded at exactly the same four skip connections, their water-hyacinth IoU remains 7.60% and 6.01% lower than that of TWAU-Net, respectively; it has 27.20 M parameters and a single-image inference latency of 34.52 ms. [Conclusion] Ablation experiments verify that the lower-triangular direction with window size M=4 is the optimal configuration, and the triangular window attention effectively improves the pixel-level segmentation of directional textures such as water hyacinth leaf margins.
+
+Keywords: water hyacinth; semantic segmentation; U-Net; triangular window attention; UAV remote sensing
+
+111111111111111111111111111111
+
+基金项目：××××××××（请填写）
+
+作者简介：×××（出生年—），男，职称，学位，主要从事×××研究。E-mail：×××
+
+通信作者：×××（出生年—），男，职称，学位，主要从事×××研究。E-mail：×××
+
+0 引言
+
+水葫芦原产于南美洲，繁殖能力强、适应性广，是世界性的恶性入侵水生植物，在我国河道、湖库等缓流水域广泛分布[1-2]。其暴发性生长会遮蔽阳光、消耗水体溶解氧，导致水质恶化与水生生态系统退化；大面积连片覆盖还会阻塞航道、影响行洪排灌，对防洪、供水、发电等水利工程的安全运行构成威胁[2]。对水利管理而言，及时掌握河道水葫芦的分布范围、覆盖边界与蔓延趋势，是打捞处置、面积核算与生态调度等防治决策的基础。
+
+传统的监测手段以人工巡查与船载测量为主，效率低、时效差，难以覆盖大范围河网。随着无人机遥感数据获取成本的持续下降，航拍影像已成为水葫芦监测的主要数据源。然而，水葫芦面积核算与打捞调度需要像素级的覆盖边界，海量航拍影像又无法依赖人工逐张判读，影像的自动化精细解译已成为水葫芦监测业务化应用亟待解决的问题。
+
+围绕这一需求，早期研究利用水面与植被的光谱差异实现自动识别，即先计算归一化植被指数（NDVI）、绿度指数等光谱指标，再以阈值分割或聚类的方式圈出植被所在区域。Song等[3]基于多光谱无人机影像与植被指数实现了水生植物检测，验证了该类方法在无人机遥感中的可行性。此类方法物理意义直观、无需训练样本，但对光照与水质较为敏感，阈值需针对具体场景人工设定；河道水体的浑浊度与光照条件随季节和河段变化剧烈，固定阈值难以稳定泛化；同时，阈值式划分只能给出粗略区域，无法刻画像素级边界，难以满足面积定量估算的精度要求。
+
+随着卷积神经网络的发展，水葫芦识别逐渐转向由数据自动学习判别特征，目标检测方法率先得到应用。Tomas等[4]采用YOLOv7检测菲律宾帕西格河水面的水葫芦，验证了深度检测模型在该任务中的可行性；王天昊[5]研究了基于YOLOv7的水葫芦目标检测方法；Ji等[6]将深度学习目标检测应用于入侵物种的生态监测。检测类方法能够在复杂背景下快速定位水葫芦，但检测框只给出目标的大致范围，不携带像素级覆盖信息；实例分割虽能输出掩膜，但在水葫芦叶片密集交叠的场景下边界精度有限，与面积定量和边界制图的应用需求之间仍有差距。水葫芦识别由此转向像素级的语义分割。
+
+语义分割直接输出逐像素类别标签，与面积核算的应用需求更为契合，近年来已有系列研究。刘伟等[7]提出基于Mask R-CNN[8]的水面漂浮物识别方法，并集成Detectron2框架实现实时推理与分析；包学才等[9]针对水面多类型漂浮物分割任务改进DeepLabV3+[10]，以Xception为主干网络，引入注意力机制与全连接条件随机场融合局部细节与全局语义信息；雷佳明等[11]将DeepLabV3+应用于水库漂浮物智能识别，构建了水库漂浮物语义分割数据集，并设计加权代价函数缓解类别间像素数量不平衡问题。上述工作验证了语义分割路线的可行性，也反映出该任务的共性难点：水葫芦等目标像素占比低，类别不平衡问题突出，目标边界不规则，精细刻画难度大。在骨架选择上，这些工作均沿用通用分割网络：Ronneberger等[12]提出的U-Net以对称的编解码结构与跳跃连接保留空间细节，是像素级分割的经典骨架[13]；Chen等[10]提出的DeepLabV3+则以空洞卷积聚合多尺度上下文。通道注意力、空间注意力与自注意力等注意力模块[14]也被广泛用于增强分割网络的特征判别能力。然而，方形卷积核与方形窗口注意力的感受野在水平、竖直与对角方向上均是对称的，而河道影像中需要区分的纹理恰恰是各向异性的：水葫芦叶缘以斜向边缘为主，桥墩表现为竖直线条，船体表现为水平线条。对称的感受野无法区分方向，只能将建模能力均等地分散到各个方向，难以对水葫芦特有的斜向结构形成有针对性的表达。
+
+打破感受野对称性的线索来自图像超分辨率领域。Ray等[15]提出的三角窗注意力（Triangular Window Attention, TWA），在局部窗口内沿主对角线构造下三角或右上三角掩码，将注意力限制在三角形子集内，在保持上下文覆盖的同时显式引入方向敏感性，取得了优于方形窗口注意力的重建效果，证明方向性窗口约束是一条可行路径。不过，超分辨率关注像素重建，语义分割关注类别判别，二者的任务目标差异显著，三角掩码嵌入分割网络后是否依然有效、下三角与右上三角两种方向孰优孰劣、窗口尺寸如何取舍，目前均无现成结论。为此，本文将TWA从超分辨率任务迁移到语义分割，将其以双残差形式适配嵌入U-Net的4个跳跃连接处，构成TWAU-Net。在自建的2300余张太湖流域无人机航拍水葫芦数据集上，本文将TWAU-Net与多种分割网络及注意力基线进行对比、同位对照与消融实验，以验证三角窗注意力在水葫芦像素级精细分割中的有效性，为水葫芦监测的业务化应用提供算法支撑。
+
+1 水葫芦图像数据集构建
+
+目前尚无公开权威的水葫芦语义分割数据集，本文以无人机航拍的太湖流域河道、湖荡水葫芦影像为原始数据，自建包含2300余张影像的水葫芦语义分割数据集，涵盖水面、水葫芦、硬质结构、岸边植被、其他水生植被 5 类像素级标注。
+
+1.1 数据来源
+
+影像采集于太湖流域内的不同河道与湖荡，共获取无人机航拍原始影像2300余张。影像涵盖多种河道与湖荡场景，覆盖岸边植被带、开阔水面、硬质结构、水葫芦连片区与混杂植被区等典型工况，反映了实际水域中水葫芦在背景环境、光照及分布尺度上的多样性。影像尺寸统一为 640 像素×640 像素。
+
+1.2 数据标注与划分
+
+2300余张原始影像均由人工完成像素级标注并经质量控制，构成本文实验所用语义分割数据集，按约 4:1 划分为训练集与验证集。各类像素占比统计如表 1 所示：水葫芦在训练集与验证集中分别占 5.78% 与 3.40%，验证集占比低于训练集，属于显著的小目标类且两集间存在分布差异，结果解读时对此予以注意。
+
+表1 数据集各类别像素占比统计
+
+Table 1 Pixel proportion of each class in the dataset
+
+[表1 开始]
+
+T| 类别 | 训练集占比 / % | 验证集占比 / %
+
+T| 水面 | 51.07 | 52.11
+
+T| 水葫芦 | 5.78 | 3.40
+
+T| 硬质结构 | 8.68 | 8.00
+
+T| 岸边植被 | 18.97 | 20.22
+
+T| 其他水生植被 | 15.50 | 16.27
+
+[表1 结束]
+
+1.3 数据增强
+
+深度学习模型通常需要较大的数据量才能取得良好的训练效果，而像素级标注成本高，数据集规模仍相对有限。为此，训练阶段采用在线数据增强，依次施加随机水平翻转（概率 0.5）、竖直翻转（概率 0.3）、随机 90° 旋转（概率 0.5）、仿射变换（随机平移、0.9~1.1 倍缩放与 ±15° 旋转，概率 0.5）、亮度与对比度扰动（概率 0.5）及色相/饱和度/明度扰动（概率 0.3），以模拟不同拍摄视角与光照条件下的水面场景，提升模型泛化能力、抑制过拟合。验证集仅做归一化，不施加随机变换，以保证评估结果客观可比。参与对比的全部方法均采用相同的增强策略与训练配置。
+
+2 TWAU-Net 方法
+
+2.1 总体结构
+
+网络整体沿用 U-Net 的编码器-解码器结构。U-Net[12]凭借对称的编解码结构与跳跃连接，能够把编码器各尺度的细节特征直接传递到解码器，在像素级分割任务中长期作为经典框架使用。本文编码器采用 ImageNet 预训练的 ResNet34[16]，逐级下采样后输出 4 个尺度、分辨率逐级减半的特征；每个解码级由 Conv-BN-ReLU 双卷积块（ConvBlock）构成，解码路径与分割头共经 5 次 2 倍上采样逐步恢复至输入分辨率，最后由分割头输出 5 类的逐像素概率。
+
+如引言所述，方形卷积核与方形窗口注意力的感受野都缺乏方向判别能力，而这一不足在跳跃连接所传递的低层细节特征上尤为突出，叶缘、边界等方向性结构正是在这些尺度上被编码的。为此，本文在 U-Net 的全部 4 个跳跃连接处嵌入三角窗注意力模块，构成 TWAU-Net，整体结构如图 1 所示。记第 k 个尺度特征经 TWA 增强后的结果为 Sk，解码路径为
+
+式中θk为第 k 个 TWA 模块的可学习参数，Up(·) 为 2 倍转置卷积上采样，Concat(·) 为通道拼接。最深层特征 s4 充当解码入口，经上采样后与 s3 拼接，其本身不参与拼接；d1 所在分辨率已无对应尺度的跳跃特征，仅做上采样与卷积；分割头 SegHead 为 1×1 卷积，作用于第 5 次上采样后的全分辨率特征。
+
+图1 TWAU-Net 总体结构
+
+Fig.1 Overall architecture of TWAU-Net
+
+2.2 三角窗注意力模块
+
+TWA 模块的处理以局部窗口为单位。将尺寸 H × W 的特征图按 M × M 划分为互不重叠的窗口，窗口内每个位置视为一个 token，其索引为 i = rM + c，其中 r, c 分别为窗口内的行号与列号，按图像坐标约定行自上而下、列自左向右递增。在窗口内计算多头自注意力时，按如下规则构造注意力掩码 A ∈ ℝ(M2) × (M2)：
+
+式中 i 为 query 索引、j 为 key 索引。被置 -∞ 的元素经 softmax 后权重趋于零，相当于切断了对应的信息通路。按上述坐标约定，下三角掩码 Alower 允许 query 关注的 key 是其自身以及位于其左上方范围内的位置，包含同行左侧与同列上方；右上三角掩码 Aupper 允许 query 关注的 key 是其自身以及位于其右下方范围内的位置，包含同行右侧与同列下方。两种掩码的名称描述其在注意力矩阵中的三角形状，分别对应 token 网格上沿主对角线的两个相反聚合方向。
+
+相比不设掩码的方形窗口注意力，三角掩码以很低的额外代价带来两方面收益。其一，每个位置只聚合单一主对角方向上的上下文，方向敏感性由结构本身保证，无需额外监督；其二，注意力矩阵中的有效元素数由 M4 降至 (M(M+1)/2)2，在 M2 个 query 全部保留的前提下，有效元素占比为 ((M+1)/(2M))2：M=4 时为 39.1%、M=8 时为 31.6%，随 M 增大渐近于四分之一。
+
+式中 Attn(·; A) 表示带三角掩码的多头自注意力：输入特征先经线性投影得到 Q、K、V，按 8 个头拆分，注意力权重经缩放（除以 {dh}，dh 为每头维度）并与掩码 A 相加后由 softmax 归一化。每个 TWA 模块在窗口注意力之外还包含组归一化与前馈网络，二者均以残差形式接入（先相加、再组归一化），使 TWA 表现为对输入特征的精炼而非替换；组归一化采用组数为 8 的 GroupNorm，以在小批量训练下稳定特征分布。模块整体流程如图 2 所示。
+
+图2 三角窗注意力模块（(a) 特征图按 M×M 划分窗口；(b) 窗口内下三角聚合，Query 仅关注自身及左上方 token；(c) 4×4 窗口对应的 16×16 注意力掩码矩阵，深色为 softmax 前置 −∞ 的屏蔽位置；(d) 模块流程：窗口注意力与 FFN 均以双残差（相加后组归一化）形式接入）
+
+Fig.2 Triangular window attention module ((a) feature maps are partitioned into M×M windows; (b) lower-triangular aggregation within a window, where a Query attends only to itself and the tokens above and to its left; (c) the 16×16 attention mask matrix of a 4×4 window, where dark cells denote positions masked by −∞ before softmax; (d) module pipeline: both window attention and FFN are connected in a double-residual form (addition followed by group normalization))
+
+2.3 损失函数与类别不均衡处理
+
+水葫芦在数据集中属于显著的少数类，其像素在训练集与验证集中分别仅占 5.78% 与 3.40%，见表 1。若直接采用无权重交叉熵训练，网络将偏向水面、岸边植被等大类，导致水葫芦类欠学习。针对这一问题，本文采用类别加权交叉熵与 Dice 损失[17]的加权和：
+
+式中类别权重 wc = 1 / pc 按训练集各类像素占比pc 的倒数归一化得到，使少数类的误分类承受更大惩罚；Dice 损失直接优化预测与真值的重叠度，对前景-背景失衡不敏感，与加权交叉熵形成互补。λ 为 Dice 损失的权重系数，取 0.5。该损失形式与全部对比基线保持一致，以确保方法间的性能差异仅来自网络结构本身。
+
+3 实验验证
+
+3.1 实验准备
+
+为检验 TWAU-Net 的有效性，将其与 5 种配置对比：B0和B1为不同骨干的 U-Net；B4为 DeepLabV3+；B2、B3为注意力基线，将 CBAM[18]与 Triplet Attention[19]按其原始乘性门控形式，嵌入与 TWA 完全相同的 4 个跳跃连接处，训练配置与其余各行严格一致，用于分离"注意力机制"与"嵌入位置/数量"两个因素。TWAU-Net 则在相同的 4 个跳跃连接处以双残差形式嵌入 TWA。
+
+所有实验均在单卡 NVIDIA GeForce RTX 4090 GPU 上完成，该显卡显存为 12 GB。优化器为 AdamW，初始学习率为 6×10⁻⁵，权重衰减 0.01，学习率按余弦退火调度至 1×10⁻⁶。批量大小为 4，通过 2 步梯度累积实现等效批量 8，共训练 200 个 epoch。所有模型均在相同训练-验证划分与数据增强下训练，编码器使用 ImageNet 预训练权重初始化；除骨干预训练外不引入任何额外数据。实验未固定随机种子，各方法均为单次训练结果，运行间波动约为 0.2~0.5%；表 2 中各方法与本文方法的水葫芦类 IoU 差距均在 6%以上，mIoU 差距最小为 1.30%，均明显高于该波动量级。
+
+分割精度以 mIoU、mAcc 与水葫芦类 IoU 衡量，其中 mIoU 为各类别 IoU 的算术平均，mAcc 为各类别召回率的算术平均，水葫芦类 IoU 记为 WH IoU。模型复杂度以参数量、模型大小与单图推理时延衡量：参数量以 M 计，模型大小以 MB 计，单图推理时延在 batch 为 1、FP32、输入尺寸 640×640 的条件下，于验证集全部图像上逐张前向计时并取算术平均，以 ms 计。在模型选择与结论比较中，本文以水葫芦类 IoU 为首要指标、mIoU 为参考指标：业务上面积核算的精度取决于水葫芦类本身的重叠度，而 mIoU 由 5 个类别均摊，少数类的改善在其中的占比被稀释。
+
+3.2 对比实验与分析
+
+6 种方法在验证集上的对比结果如表 2 所示。
+
+表2 主结果对比
+
+Table 2 Main results on the validation set
+
+[表2 开始]
+
+T| 编号 | 方法 | mIoU | mAcc | WH IoU | 参数量 / M | 模型大小 / MB | 时延 / ms
+
+T| B0 | U-Net (ResNet18) | 0.7415 | 0.8751 | 0.6114 | 14.33 | 54.77 | 22.55
+
+T| B1 | U-Net (ResNet34) | 0.7487 | 0.8865 | 0.5962 | 24.44 | 93.38 | 27.76
+
+T| B2 | U-Net +CBAM | 0.8423 | 0.8744 | 0.7047 | 24.45 | 93.44 | 36.30
+
+T| B3 | U-Net +Triplet Attn | 0.8599 | 0.8879 | 0.7206 | 24.53 | 93.75 | 35.40
+
+T| B4 | DeepLabV3+(ResNet18) | 0.7294 | 0.8735 | 0.5734 | 12.33 | 47.15 | 21.52
+
+T| B5 | TWAU-Net | 0.8729 | 0.9002 | 0.7807 | 27.20 | 103.93 | 34.52
+
+[表2 结束]
+
+对比ResNet18和ResNet34的识别结果可知，模型识别精度瓶颈不在骨干容量，而在特征的方向判别性。骨干由ResNet18加深为ResNet34，水葫芦类 IoU 反而由 0.6114 降至 0.5962，说明单纯加大特征容量无助于这一小目标、强不均衡类别。TWAU-Net 在与 ResNet34完全相同的骨干与训练配置下，将水葫芦类 IoU 与 mIoU 分别提高 18.45 与 12.42%，mAcc 同步升至 0.9002，增益集中在少数类而非大类。
+
+对比U-Net + CBAM、U-Net + Triplet Attn和TWAU-Net的识别结果可知，门控注意力同位等量嵌入虽可取得增益，但幅度明显低于 TWA。U-Net + CBAM、U-Net + Triplet Attn将 CBAM 与 Triplet Attention 放到与 TWA 完全相同的 4 个跳跃连接处，较ResNet34，水葫芦类 IoU 分别提升 10.85 与 12.44%，mIoU 分别提升 9.36 与 11.12%，说明多尺度嵌入注意力本身即有效；但其增益幅度仍明显低于 TWAU-Net 的 18.45%。一个合理的解释是：这两种注意力以 sigmoid 逐元素相乘调制特征且无残差通路，虽能对跳跃特征形成一定的选择性筛选，但其门控线索与类别语义弱相关，且串联在 4 个浅层跳跃特征上会逐级衰减细节信息与梯度，制约了多尺度嵌入的收益。为进一步拆解三种注意力的工作机制，图 3、图4和图5分别给出U-Net网络四个跳跃连接处 TWA 模块、CBAM模块和Triplet Attn模块的空间注意力热图。
+
+图3 TWAU-Net 各尺度注意力热图
+
+Fig.3 Multi-scale attention maps of TWAU-Net
+
+图4 U-Net+CBAM各尺度空间门控响应热图
+
+Fig.4 Multi-scale spatial gating response maps of U-Net+CBAM
+
+图5 U-Net+Triplet Attn各尺度空间门控响应热图
+
+Fig.5 Multi-scale spatial gating response maps of U-Net+Triplet Attention
+
+从图 3 可见，TWA在各尺度呈现清晰的分工：浅层 s1、s2 的注意力保留目标细碎斑块与边界细节，呈现与叶缘、个体轮廓相对应的细粒度响应；随分辨率降低，深层 s3、s4 逐渐聚合大块的背景语义上下文，硬质结构、岸边林带、连片植被等区域的响应连片增强，细碎水葫芦斑块在深层的相对响应减弱。这一分工符合编码-解码网络的普遍规律，也说明热图反映的是内容驱动的聚焦而非掩码几何先验的残留。TWA 据此在各尺度上为解码器提供由细节到语义的逐级特征，与表 2 中水葫芦类 IoU 的优势相对应。作为对照，图4与图5两图揭示了门控注意力在多尺度嵌入下增益受限的直观模式，且二者的受限方式不同。CBAM在浅层 s1、s2 的高响应集中于岸边植被、硬质结构等高频纹理区域，而开阔水面上的水葫芦斑块反而处于低响应区，门控以局部纹理与边界能量为主要线索，对目标本身的刻画不足；至深层 s3、s4，响应趋于大范围饱和，目标与背景几乎不可分，门控的选择性明显下降。Triplet Attn的响应则呈与坐标轴平行的条带状、格状纹理，这是行注意力与列注意力外积形式的固有形态，与水葫芦的分布形态基本无对应；深层更出现整列贯通的暗带，与内容无关地整块压制特征。综上所述，TW在各尺度的响应均与目标结构及语义区域清晰对应，CBAM和Triplet Attn两种门控所利用的线索与类别语义弱相关，其乘性无残差形式又将这种失真在 4 个尺度上逐级放大；而 TWA 在相同位置依靠双残差精炼，保持了与目标相关的内容驱动响应。
+
+对比各模型的时延结果可知，TWA精度优势伴随可接受的效率代价，时延甚至低于同位门控基线。TWAU-Net 参数量 27.20 M，较同位注意力基线U-Net + CBAM多 2.75 M，模型大小 103.93 MB；单图推理时延 34.52 ms，较ResNet34仅增加 6.76 ms，且低于同位嵌入的 U-Net + CBAM与 U-Net + Triplet Attn；TWA 的注意力在 M×M 窗口内进行，三角掩码又将窗口内有效注意力元素削减至 39.1%，而门控基线的卷积与逐元素调制作用于整个空间图。就精度-效率权衡而言，TWAU-Net 以更低的时延取得了水葫芦类 IoU 的大幅领先。
+
+表 3 给出了代表性方法的逐类 IoU。TWAU-Net 在 5 个类别上均高于U-Net (ResNet34)与DeepLabV3+ (ResNet18)，且增益整体向低占比类别倾斜：与U-Net (ResNet34)相比，两类水生植被的提升位居前二，水葫芦提升了16.45%、其他水生植被提升了12.84%，硬质结构、岸边植被与水面依次提升了 11.41%、10.87% 与 10.52%。各方法的短板集中在两类水生植被上：U-Net (ResNet34)与TWAU-Net均以"其他水生植被"为逐类最低，DeepLabV3+ (ResNet18)则以水葫芦类最低、"其他水生植被"次低，与其在强结构干扰场景下水葫芦类明显下滑的表现相互印证。为确认主结果差异并非单次训练波动的偶然，对 TWAU-Net 与 U-Net (ResNet34)在两方法逐图水葫芦类 IoU 均有定义的 108 张验证图上作配对 Wilcoxon 符号秩检验：差异显著（p=0.045<0.05），两方法逐图水葫芦类 IoU 的平均差值为 0.025，非零差值中 TWAU-Net 占优与落后的图像数之比为 47:32。
+
+表3 代表性方法的逐类 IoU 对比
+
+Table 3 Per-class IoU comparison of representative methods on the validation set
+
+[表3 开始]
+
+T| 方法 | 水面 | 水葫芦 | 硬质结构 | 岸边植被 | 其他水生植被 | mIoU
+
+T| U-Net(ResNet34) | 0.8671 | 0.5962 | 0.8121 | 0.8529 | 0.6151 | 0.7487
+
+T| DeepLabV3+(ResNet18) | 0.8636 | 0.5734 | 0.7675 | 0.8390 | 0.6037 | 0.7294
+
+T| TWAU-Net | 0.9723 | 0.7607 | 0.9262 | 0.9616 | 0.7435 | 0.8729
+
+[表3 结束]
+
+表 4 进一步给出 TWAU-Net 在验证集上的行归一化混淆矩阵。水葫芦类的召回率为 90.24%，其误判像素中 40.4% 流向"其他水生植被"，是水葫芦误差最主要的流向；反向地，"其他水生植被"亦有 3.75% 被误判为水葫芦，且该类对角线精度84.17%为 5 类最低，两类形态相近的水生植被之间的双向混淆，是制约水葫芦类精度进一步提升的主要瓶颈，与结论中局限第三条的判断一致。其余较大的类间混淆均发生在语义相邻类别之间：水面被误判为"其他水生植被"的比例为 8.47%，硬质结构被误判为岸边植被的比例为 6.94%。
+
+表4 TWAU-Net 的行归一化混淆矩阵（%）
+
+Table 4 Row-normalized confusion matrix of TWAU-Net (%)
+
+[表4 开始]
+
+T| 真值 \ 预测 | 水面 | 水葫芦 | 硬质结构 | 岸边植被 | 其他水生植被
+
+T| 水面 | 89.20 | 1.08 | 0.63 | 0.61 | 8.47
+
+T| 水葫芦 | 4.62 | 90.24 | 0.16 | 1.03 | 3.95
+
+T| 硬质结构 | 0.71 | 0.12 | 92.00 | 6.94 | 0.23
+
+T| 岸边植被 | 0.56 | 0.30 | 2.47 | 94.47 | 2.20
+
+T| 其他水生植被 | 5.23 | 3.75 | 0.46 | 6.40 | 84.17
+
+[表4 结束]
+
+3.3 消融实验
+
+为验证 TWA 的方向形式与窗口尺寸这两项设计选择各自的作用，开展消融实验，结果如表 5 与图6所示。
+
+表5 TWAU-Net 消融实验
+
+Table 5 Ablation experiments of TWAU-Net
+
+[表5 开始]
+
+T| 编号 | 配置 | 描述 | mIoU | WH IoU | Params (M)
+
+T| A0 | U-Net（无 TWA） | 无 TWA | 0.7505 | 0.5917 | 24.40
+
+T| A1 | U-Net + TWA (lower), M=8 | 下三角方向 | 0.8708 | 0.7493 | 27.20
+
+T| A2 | U-Net + TWA (upper), M=8 | 右上三角方向 | 0.8686 | 0.7319 | 27.20
+
+T| A3 | U-Net + TWA (both), M=8 | 双方向拼接 | 0.8641 | 0.7370 | 29.29
+
+T| A4 | U-Net + TWA (both), M=4 | 双方向 + 小窗口 | 0.8768 | 0.7132 | 29.29
+
+T| A5 | U-Net + TWA (lower), M=4 | 下三角 + 小窗口 | 0.8729 | 0.7807 | 27.20
+
+[表5 结束]
+
+注： A0 与表 2 中 B1 名义配置相同（同骨干、同训练配置），三项指标的微小出入（mIoU +0.0018、WH IoU −0.0045、参数量 −0.04 M）来自两次独立训练的运行间波动，量级约 0.2~0.5%，与全文单次训练协议一致。
+
+图6 消融实验各配置的 mIoU 与水葫芦类 IoU 对比
+
+Fig.6 mIoU and water-hyacinth IoU of each ablation configuration
+
+表 5 与图6的结果可归纳为三点。其一，引入TWA 的效果是显著的，与不含TWA的 A0 相比，任一TWA配置的水葫芦类IoU均不低于 0.7132，最高提升 18.90%，mIoU 提升最高 12.63%，而参数量仅增加2.80 M。其二，方向形式上单向下三角最稳：M=8下，下三角A1的水葫芦类 IoU为0.7493，高于右上三角 A2的0.7319与双方向 A3的0.7370；M=4 下，下三角 A5的水葫芦类 IoU为0.7807同样高于双方向 A4的0.7132。双方向拼接A3和A4引入更多参数却未换来更高精度。两种方向仅在聚合方向上不同：M=8 下单向下三角的汇总水葫芦类 IoU 高于右上三角，但逐图配对 Wilcoxon 符号秩检验未达显著水平（n=102，p=0.55），说明方向间的差距尚不足以构成单图水平的统计学结论，本文不就其机理另作断言，下三角选型系依据 3.1 节声明的首要指标与汇总结果作出。其三，更小的窗口有利于细节刻画：下三角方向下 M 由 8 减至 4，水葫芦类 IoU 由 0.7493 升至 0.7807，mIoU 基本持平，参数量不变，说明缩小窗口在保持整体判别的同时强化了细节边界的表达。综上所述，本文选取 A5即下三角注意力、M=4的TWAU-Net作为主模型，以 mIoU 上 0.39%的让步，换取少数类精度 6.75%的优势与更小的模型体量。
+
+3.4 可视化分析
+
+为定性评估各方法的分割质量，从验证集中选取 5 种典型河道场景进行对比，即岸边植被带、开阔水面、以硬质结构为主、水葫芦分布区以及水葫芦与其他水生植被混杂区。图7给出原图、人工真值、5 种基线与 TWAU-Net 的预测结果：水葫芦类以红色高亮，各预测图左上角标注该样本的水葫芦类 IoU，每行 IoU 最高者以金框标出。
+
+图7五种典型场景下各方法的分割结果对比
+
+Fig.7Segmentation comparison of different methods under five typical scenes
+
+从图7可知。TWAU-Net 在5种典型场景中均取得最高的水葫芦类 IoU：岸边植被带 0.773、开阔水面 0.887、硬质结构为主 0.690、水葫芦分布区 0.901、水葫芦与其他水生植被混杂 0.769，说明三角窗注意力带来的增益在各类河道场景下普遍成立。同时，相对各场景最优基线，TWAU-Net 的领先幅度由 0.003 至 0.034 不等：在开阔水面与以硬质结构为主的场景中分别领先 0.034 与 0.029，说明三角窗注意力在均质背景下的目标刻画与强结构干扰场景中优势最明显；而在水葫芦分布区、混杂植被区与岸边植被带 3 个基线本身较强的场景中，领先收窄至 0.008、0.007 与 0.003。最后，在以硬质结构为主的场景中，该样本水葫芦像素占比按人工真值统计仅约 1.3%，各方法的水葫芦类 IoU 普遍下滑，DeepLabV3+ 更降至 0.382，其 ASPP 模块的大空洞率在小样本、低占比类上更易欠拟合，与其整体精度相互印证；TWAU-Net 仍以 0.690 保持首位，说明其对低占比、强结构场景亦有较好的适应性。需指出的是，图中 5 个场景为示意性典型样本，单场景水葫芦类 IoU 受水葫芦占比影响波动较大；TWAU-Net 的整体优势体现在全量验证集上的平均指标，即水葫芦类 IoU 为 0.7807、mIoU 为 0.8729，均居各方法之首，见表 2。图8以分组柱状图汇总 5 个场景6种方法的水葫芦类 IoU，数值与图7各面板左上角标注一致，便于逐场景比较各方法的相对位置。
+
+图8五种典型场景下各方法水葫芦类 IoU 分组对比（
+
+Fig.8 Grouped comparison of the water-hyacinth IoU of different methods under the five typical scenes
+
+4 结论
+
+本文针对无人机航拍河道影像中水葫芦像素级精细识别的需求，提出了融合三角窗注意力与 U-Net 的语义分割方法 TWAU-Net：将 TWA 以双残差形式适配嵌入 U-Net 的 4 个跳跃连接，由三角掩码在结构上引入方向敏感性；同位等量对照与消融实验共同表明，在相同的嵌入位置与模块数量下，三角窗机制配合双残差嵌入形式取得的增益高于常规门控注意力，其中在水葫芦类IoU这一指标上，下三角方向与窗口尺寸 M=4 为最优组合。在自建的 2300 余张水葫芦数据集上，TWAU-Net 取得水葫芦类 IoU 0.7807，高于全部对比方法，单图推理时延 34.52 ms，参数量 27.20 M。
+
+本文方法训练与验证数据均采集自太湖流域内的河道与湖荡，覆盖水域范围有限，模型对其他流域水葫芦形态与背景条件的泛化能力尚未验证；同时，本文方法推理以 640×640 切片进行，大幅面影像需切片拼接处理，拼接缝附近的边界效应未做专门处理；最后，“其他水生植被” 类与水葫芦形态相近且类内多样，二者的类间混淆仍制约水葫芦类精度的进一步提升。
+
+后续工作将围绕上述局限展开：一方面扩充跨流域样本以进一步验证并提升泛化能力，同时改进网络结构、细化类别划分，缓解类间混淆对水葫芦类精度的制约；另一方面面向工程化部署，通过 INT8 量化或 TensorRT 端侧部署压缩推理开销，并将分割结果回投至管理范围线、开展多期时序对比，为日常巡查与打捞调度提供支撑。
+
+参考文献
+
+[1] 张为, 余婵, 金海洋, 等. 水葫芦防治技术及资源化利用研究进展[J]. 三峡生态环境监测, 2023, 8(1): 11-16.
+
+[2] Villamagna A M, Murphy B R. Ecological and socio-economic impacts of invasive water hyacinth (Eichhornia crassipes): a review[J]. Freshwater Biology, 2010, 55(2): 282-298.
+
+[3] Song B, Park K. Detection of aquatic plants using multispectral UAV imagery and vegetation index[J]. Remote Sensing, 2020, 12(3): 387.
+
+[4] Tomas J P Q, Diamante J C S, Cortez M M T, et al. Detection of water hyacinth (Eichhornia crassipes) on the water surface of Pasig River, Philippines, through YOLOv7[C]//Proceedings of the 2023 6th International Conference on Computational Intelligence and Intelligent Systems. New York: ACM, 2023: 124-129.
+
+[5] 王天昊. 基于YOLOv7的水葫芦目标检测方法研究[D]. 泰安: 山东农业大学, 2024.
+
+[6] Ji X, Zhang Y, Wan J, et al. Ecological monitoring of invasive species through deep learning-based object detection[J]. Ecological Indicators, 2025, 175: 113572.
+
+[7] 刘伟, 王源楠, 江山, 等. 基于Mask R-CNN的水面漂浮物识别方法研究[J]. 人民长江, 2021, 52(11): 226-233.
+
+[8] He K, Gkioxari G, Dollár P, et al. Mask R-CNN[C]//Proceedings of the IEEE International Conference on Computer Vision. Venice: IEEE, 2017: 2980-2988.
+
+[9] 包学才, 刘飞燕, 聂菊根, 等. 基于改进DeepLabV3+的水面多类型漂浮物分割方法研究[J]. 水利水电技术(中英文), 2024, 55(4): 163-175.
+
+[10] Chen L C, Zhu Y, Papandreou G, et al. Encoder-decoder with atrous separable convolution for semantic image segmentation[C]//Proceedings of the European Conference on Computer Vision. Munich: Springer, 2018: 833-851.
+
+[11] 雷佳明, 高月明, 盛安, 等. 基于语义分割算法的水库漂浮物智能识别[J]. 计算机应用, 2022, 42(增刊1): 112-117.
+
+[12] Ronneberger O, Fischer P, Brox T. U-Net: Convolutional networks for biomedical image segmentation[C]//Proceedings of Medical Image Computing and Computer-Assisted Intervention (MICCAI 2015), LNCS 9351. Cham: Springer, 2015: 234-241.
+
+[13] 田萱, 王亮, 丁琪. 基于深度学习的图像语义分割方法综述[J]. 软件学报, 2019, 30(2): 440-468.
+
+[14] Guo M H, Xu T X, Liu J J, et al. Attention mechanisms in computer vision: A survey[J]. Computational Visual Media, 2022, 8(3): 331-368.
+
+[15] Ray A, Kumar G, Kolekar M H. CFAT: Unleashing triangular windows for image super-resolution[C]//Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. Seattle: IEEE, 2024: 26120-26129.
+
+[16] He K, Zhang X, Ren S, et al. Deep residual learning for image recognition[C]//Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. Las Vegas: IEEE, 2016: 770-778.
+
+[17] Milletari F, Navab N, Ahmadi S A. V-Net: Fully convolutional neural networks for volumetric medical image segmentation[C]//Proceedings of the Fourth International Conference on 3D Vision (3DV). Stanford: IEEE, 2016: 565-571.
+
+[18] Woo S, Park J, Lee J Y, et al. CBAM: Convolutional block attention module[C]//Proceedings of the European Conference on Computer Vision. Munich: Springer, 2018: 3-19.
+
+[19] Misra D, Nalamada T, Arasanipalai A U, et al. Rotate to attend: Convolutional triplet attention module[C]//Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision. Waikoloa: IEEE, 2021: 3139-3148.

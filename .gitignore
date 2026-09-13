@@ -14,3 +14,22 @@ build/
 TinySAM/
 /.opencode/
 /.claude/
+
+# 原始数据与中间件（Label Studio 导出、无人机原始影像包、临时解压目录）
+data/
+*/temp/
+
+# 依赖
+node_modules/
+
+# 二进制产物（模型权重 / 图件 / 文档导出）
+*.onnx
+*.zip
+*.jsonl
+*.OBS
+*.docx
+*.pdf
+*.svg
+*.png
+*.jpg
+*.jpeg

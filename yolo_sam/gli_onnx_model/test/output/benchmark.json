@@ -1,0 +1,1006 @@
+{
+  "env": {
+    "onnxruntime": "1.27.0",
+    "providers": [
+      "CPUExecutionProvider"
+    ],
+    "model": "D:\\chengs\\9.project\\shuihulu\\tests_env\\best.onnx"
+  },
+  "config": {
+    "conf": 0.1,
+    "iou": 0.5,
+    "imgsz": 640,
+    "gli_wh_overlap": 0.25,
+    "min_area": 50,
+    "merge_ksize": 25
+  },
+  "per_image": [
+    {
+      "name": "DJI_20260616170707_0068_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 169.5,
+      "gli_ms": 416.2,
+      "total_ms": 617.7,
+      "wh_instances": 6,
+      "wh_area_px": 977201,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 5,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260616180214_0014_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 129.5,
+      "gli_ms": 431.5,
+      "total_ms": 573.2,
+      "wh_instances": 13,
+      "wh_area_px": 432444,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 24,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260616190422_0046_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 141.4,
+      "gli_ms": 424.9,
+      "total_ms": 586.4,
+      "wh_instances": 19,
+      "wh_area_px": 976091,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 21,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617060123_0001_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 152.6,
+      "gli_ms": 406.4,
+      "total_ms": 589.2,
+      "wh_instances": 8,
+      "wh_area_px": 28947,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 2,
+        "WH": 9,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617070608_0074_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 146.4,
+      "gli_ms": 453.5,
+      "total_ms": 627.0,
+      "wh_instances": 0,
+      "wh_area_px": 0,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 14,
+        "tree": 1
+      }
+    },
+    {
+      "name": "DJI_20260617080203_0011_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 140.4,
+      "gli_ms": 570.0,
+      "total_ms": 741.7,
+      "wh_instances": 25,
+      "wh_area_px": 1309685,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 28,
+        "tree": 1
+      }
+    },
+    {
+      "name": "DJI_20260617080233_0019_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 154.1,
+      "gli_ms": 512.7,
+      "total_ms": 683.6,
+      "wh_instances": 22,
+      "wh_area_px": 1127912,
+      "yolo_detections": {
+        "Boat": 1,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 28,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617080241_0021_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 132.9,
+      "gli_ms": 533.9,
+      "total_ms": 684.2,
+      "wh_instances": 30,
+      "wh_area_px": 148836,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 39,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617080504_0057_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 145.3,
+      "gli_ms": 433.8,
+      "total_ms": 595.4,
+      "wh_instances": 9,
+      "wh_area_px": 895368,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 7,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617080538_0066_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 146.1,
+      "gli_ms": 417.8,
+      "total_ms": 574.8,
+      "wh_instances": 11,
+      "wh_area_px": 494889,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 10,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617090203_0011_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 128.6,
+      "gli_ms": 536.3,
+      "total_ms": 676.3,
+      "wh_instances": 34,
+      "wh_area_px": 1622338,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 30,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617090229_0018_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 156.4,
+      "gli_ms": 549.8,
+      "total_ms": 725.9,
+      "wh_instances": 39,
+      "wh_area_px": 894345,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 58,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617090428_0048_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 141.8,
+      "gli_ms": 499.7,
+      "total_ms": 656.7,
+      "wh_instances": 35,
+      "wh_area_px": 704213,
+      "yolo_detections": {
+        "Boat": 1,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 64,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617100421_0046_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 140.2,
+      "gli_ms": 570.8,
+      "total_ms": 729.4,
+      "wh_instances": 47,
+      "wh_area_px": 1070728,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 46,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617110433_0049_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 129.7,
+      "gli_ms": 489.8,
+      "total_ms": 647.8,
+      "wh_instances": 25,
+      "wh_area_px": 388556,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 1,
+        "WH": 25,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617110553_0070_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 152.7,
+      "gli_ms": 647.0,
+      "total_ms": 817.6,
+      "wh_instances": 53,
+      "wh_area_px": 784942,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 65,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617114037_0025_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 116.1,
+      "gli_ms": 350.7,
+      "total_ms": 478.2,
+      "wh_instances": 3,
+      "wh_area_px": 514876,
+      "yolo_detections": {
+        "Boat": 2,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 11,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617114048_0028_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 132.0,
+      "gli_ms": 416.0,
+      "total_ms": 567.3,
+      "wh_instances": 18,
+      "wh_area_px": 23496,
+      "yolo_detections": {
+        "Boat": 1,
+        "Bridge": 0,
+        "Structure": 2,
+        "WH": 17,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617114221_0051_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 137.1,
+      "gli_ms": 360.6,
+      "total_ms": 511.6,
+      "wh_instances": 5,
+      "wh_area_px": 831658,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 5,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617120214_0014_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 141.0,
+      "gli_ms": 477.9,
+      "total_ms": 650.5,
+      "wh_instances": 25,
+      "wh_area_px": 1146927,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 33,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260617120424_0047_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 133.0,
+      "gli_ms": 453.4,
+      "total_ms": 597.8,
+      "wh_instances": 18,
+      "wh_area_px": 1749846,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 22,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618060203_0011_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 136.2,
+      "gli_ms": 739.6,
+      "total_ms": 894.9,
+      "wh_instances": 48,
+      "wh_area_px": 1302825,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 51,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618080445_0052_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 158.8,
+      "gli_ms": 379.1,
+      "total_ms": 558.4,
+      "wh_instances": 4,
+      "wh_area_px": 621201,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 6,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618090557_0071_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 141.2,
+      "gli_ms": 419.3,
+      "total_ms": 591.5,
+      "wh_instances": 14,
+      "wh_area_px": 210090,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 16,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618090616_0076_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 133.4,
+      "gli_ms": 646.7,
+      "total_ms": 812.2,
+      "wh_instances": 30,
+      "wh_area_px": 36651,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 2,
+        "WH": 42,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618090620_0077_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 121.8,
+      "gli_ms": 491.3,
+      "total_ms": 627.9,
+      "wh_instances": 21,
+      "wh_area_px": 224460,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 1,
+        "WH": 24,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618110511_0059_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 133.2,
+      "gli_ms": 450.5,
+      "total_ms": 600.5,
+      "wh_instances": 22,
+      "wh_area_px": 851652,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 29,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618110538_0066_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 137.9,
+      "gli_ms": 609.9,
+      "total_ms": 780.1,
+      "wh_instances": 44,
+      "wh_area_px": 474488,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 50,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618120206_0012_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 126.8,
+      "gli_ms": 828.1,
+      "total_ms": 967.7,
+      "wh_instances": 53,
+      "wh_area_px": 1587655,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 87,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618120229_0018_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 140.4,
+      "gli_ms": 752.0,
+      "total_ms": 911.2,
+      "wh_instances": 51,
+      "wh_area_px": 722931,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 63,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618130133_0004_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 153.0,
+      "gli_ms": 483.2,
+      "total_ms": 668.7,
+      "wh_instances": 29,
+      "wh_area_px": 498880,
+      "yolo_detections": {
+        "Boat": 1,
+        "Bridge": 0,
+        "Structure": 1,
+        "WH": 43,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618130311_0029_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 136.9,
+      "gli_ms": 521.7,
+      "total_ms": 675.8,
+      "wh_instances": 27,
+      "wh_area_px": 23270,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 3,
+        "WH": 35,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618140215_0014_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 144.6,
+      "gli_ms": 558.0,
+      "total_ms": 719.5,
+      "wh_instances": 27,
+      "wh_area_px": 1082310,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 35,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618140426_0047_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 138.6,
+      "gli_ms": 437.0,
+      "total_ms": 599.5,
+      "wh_instances": 11,
+      "wh_area_px": 1779722,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 16,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618140452_0054_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 138.7,
+      "gli_ms": 448.0,
+      "total_ms": 604.1,
+      "wh_instances": 26,
+      "wh_area_px": 729144,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 42,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618140507_0058_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 135.1,
+      "gli_ms": 478.2,
+      "total_ms": 639.1,
+      "wh_instances": 31,
+      "wh_area_px": 1063688,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 35,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618140530_0064_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 138.9,
+      "gli_ms": 422.6,
+      "total_ms": 577.9,
+      "wh_instances": 11,
+      "wh_area_px": 450670,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 13,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618150132_0004_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 124.1,
+      "gli_ms": 427.6,
+      "total_ms": 576.8,
+      "wh_instances": 14,
+      "wh_area_px": 230932,
+      "yolo_detections": {
+        "Boat": 2,
+        "Bridge": 0,
+        "Structure": 1,
+        "WH": 14,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618150206_0012_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 136.7,
+      "gli_ms": 475.0,
+      "total_ms": 636.9,
+      "wh_instances": 12,
+      "wh_area_px": 1472943,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 19,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618160438_0050_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 141.5,
+      "gli_ms": 406.6,
+      "total_ms": 575.9,
+      "wh_instances": 10,
+      "wh_area_px": 1273206,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 12,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618170244_0022_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 137.0,
+      "gli_ms": 469.4,
+      "total_ms": 627.0,
+      "wh_instances": 25,
+      "wh_area_px": 526182,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 32,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618170326_0033_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 154.1,
+      "gli_ms": 442.7,
+      "total_ms": 614.0,
+      "wh_instances": 19,
+      "wh_area_px": 995368,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 23,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618170334_0035_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 125.2,
+      "gli_ms": 465.5,
+      "total_ms": 621.3,
+      "wh_instances": 20,
+      "wh_area_px": 789278,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 2,
+        "WH": 24,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618170449_0053_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 138.2,
+      "gli_ms": 436.2,
+      "total_ms": 605.2,
+      "wh_instances": 14,
+      "wh_area_px": 672063,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 17,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618170602_0072_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 136.8,
+      "gli_ms": 455.1,
+      "total_ms": 602.9,
+      "wh_instances": 1,
+      "wh_area_px": 5980,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 7,
+        "tree": 1
+      }
+    },
+    {
+      "name": "DJI_20260618190217_0015_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 116.9,
+      "gli_ms": 1474.6,
+      "total_ms": 1609.9,
+      "wh_instances": 16,
+      "wh_area_px": 903324,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 25,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618190447_0053_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 121.8,
+      "gli_ms": 409.9,
+      "total_ms": 547.2,
+      "wh_instances": 10,
+      "wh_area_px": 757069,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 10,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618190459_0056_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 137.2,
+      "gli_ms": 449.2,
+      "total_ms": 602.6,
+      "wh_instances": 15,
+      "wh_area_px": 843068,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 15,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618190525_0063_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 131.2,
+      "gli_ms": 486.8,
+      "total_ms": 648.2,
+      "wh_instances": 10,
+      "wh_area_px": 730495,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 9,
+        "tree": 0
+      }
+    },
+    {
+      "name": "DJI_20260618190541_0067_V.jpeg",
+      "size": [
+        3024,
+        4032
+      ],
+      "yolo_ms": 129.3,
+      "gli_ms": 542.5,
+      "total_ms": 703.5,
+      "wh_instances": 20,
+      "wh_area_px": 550223,
+      "yolo_detections": {
+        "Boat": 0,
+        "Bridge": 0,
+        "Structure": 0,
+        "WH": 33,
+        "tree": 0
+      }
+    }
+  ],
+  "summary": {
+    "images": 50,
+    "total_wh_instances": 1080,
+    "total_wh_area_px": 37533066,
+    "mean_wh_per_image": 21.6,
+    "mean_area_per_image": 750661.3,
+    "det_counts": {
+      "Boat": 8,
+      "Bridge": 0,
+      "Structure": 15,
+      "WH": 1388,
+      "tree": 3
+    },
+    "yolo_time_ms": {
+      "mean": 138.2,
+      "p50": 137.5,
+      "p95": 155.4,
+      "min": 116.1,
+      "max": 169.5
+    },
+    "gli_time_ms": {
+      "mean": 511.2,
+      "p50": 467.5,
+      "p95": 746.4,
+      "min": 350.7,
+      "max": 1474.6
+    },
+    "total_time_ms": {
+      "mean": 670.7,
+      "p50": 627.0,
+      "p95": 903.9,
+      "min": 478.2,
+      "max": 1609.9
+    },
+    "throughput_fps": 1.5,
+    "model_load_time_s": 0.18
+  }
+}

@@ -1,0 +1,2 @@
+﻿id,path,claim,source_data,generation_script
+fig1_framework,outputs/figures/fig1_framework.png,单阶段 SegFormer-B2 一次前向输出六类像素级分割；数据/损失/训练三类针对性设计汇入主干,datasets/hyacinth_seg/images/val/ls_0392.jpg + runs/segformer/segformer_b2_ls+v9,scripts/fig1_framework.py
